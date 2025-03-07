@@ -1,11 +1,11 @@
 // Firebaseの設定
 const firebaseConfig = {
-    apiKey: "AIzaSyBqxbO4iT9x0pfN0BDlo_Ooo6nYW9t4r7U",
-    authDomain: "inspection-jeleaf.firebaseapp.com",
-    projectId: "inspection-jeleaf",
-    storageBucket: "inspection-jeleaf.firebasestorage.app",
-    messagingSenderId: "607803152408",
-    appId: "1:607803152408:web:c52b4c93cc46e3ae898b6d"
+    apiKey: "AIzaSyDRBbgFWc0Tlf9UZrJOmQXeW4LBdxHVRWI",
+    authDomain: "inspection-keihin.firebaseapp.com",
+    projectId: "inspection-keihin",
+    storageBucket: "inspection-keihin.firebasestorage.app",
+    messagingSenderId: "127263387872",
+    appId: "1:127263387872:web:768593c8aeb8694f39a085"
 };
 
 let currentBatchId = null;
@@ -82,14 +82,14 @@ function saveDataWithUser(data) {
 const clientSettings = {
     clientA: {
         picking_id: 0,
-        item_id: 22,
-        item_name: 23,
-        item_quantity: 24,
-        item_barcode: 25,
-        recipient_name: 5, // 届け先氏名
-        shipment_date: 20, // 出荷作業日
-        ins_flg: 15,
-        lot_number: 22
+        item_id: 3,
+        item_name: 4,
+        item_quantity: 5,
+        item_barcode: 10,
+        recipient_name: 3, // 届け先氏名
+        shipment_date: 1, // 出荷作業日
+        ins_flg: 10,
+        lot_number: 3
     },
     clientB: {
         picking_id: 1,
