@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>検品ページ</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="app.js" defer></script>
+</head>
+<body data-page="inspection">
+    <h1>検品ページ</h1>
+
+    <!-- ピッキングID入力欄 -->
+    <div>
+        <label for="pickingIdInput">ピッキングIDを入力:</label>
+        <input type="text" id="pickingIdInput" placeholder="ピッキングIDを入力">
+        <button onclick="fetchPickingData()">検索</button>
+    </div>
+    
+    <!-- アイテムリストの表示領域 -->
+<div id="itemListContainer">
+     <div id="currentPickingIdDisplay" style="margin-top: 20px; font-weight: bold;">現在検品中のピッキングID:</div>
+     <div id="recipientNameDisplay">届け先氏名:</div>
+     <div id="shipmentDateDisplay">発送日:</div>
+    <div id="itemListHeader">
+        <div>アイテム名</div>
+        <div>ロット番号</div>
+        <div>バーコード</div>
+        <div>状態</div>
+        <div>検品数/数量</div>
+    </div>
+    <ul id="itemList"></ul>
+</div>
+    
+    <!-- バーコード入力欄 -->
+    <div>
+        <label for="barcodeInput">アイテムバーコード:</label>
+        <input type="text" id="barcodeInput" placeholder="バーコードをスキャン">
+        <button onclick="scanBarcode()">スキャン</button>
+    </div>
+
+    <p id="statusMessage"></p>
+
+        <!-- 検品ページへのリンク -->
+    <div style="margin-top: 20px;">
+        <a href="index.html" class="button-link">登録ページへ移動</a>
+    </div>
+
+    <div id="loginContainer">
+    <input type="email" id="emailInput" placeholder="メールアドレス">
+    <input type="password" id="passwordInput" placeholder="パスワード">
+    <button id="loginButton">ログイン</button>
+</div>
+
+<div id="userInfo" style="display: block;">
+    <p id="welcomeMessage"></p>
+    <button id="logoutButton" style="display: block;">ログアウト</button>
+</div
+    >
+</body>
+</html>

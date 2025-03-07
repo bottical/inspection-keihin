@@ -1,0 +1,237 @@
+/* 全体のスタイル */
+body {
+    font-family: "YakuHanJPs", "Roboto", "Hiragino Kaku Gothic ProN", "ヒラギノ角ゴ ProN W3", Arial, "nc3Jp", sans-serif !important;
+    background: linear-gradient(135deg, #F5F8FC, #FCF9F5);
+    margin: 0;
+    padding: 20px;
+    color: #505050;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+}
+
+/* 見出しスタイル */
+h1 {
+    font-size: 2.5em;
+    color: #1B365C;
+    text-align: center;
+    margin-bottom: 20px;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* 入力フォームのスタイル */
+input[type="text"] {
+    width: 300px;
+    padding: 10px;
+    font-size: 1em;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    margin: 10px 0;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* 入力フォームのフォーカス時のスタイル */
+input[type="text"]:focus {
+    background-color: #FFF0F0;
+}
+
+
+button {
+    background-color: #7EA1C4;
+    color: white;
+    padding: 10px 20px;
+    font-size: 1em;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* ボタンホバーエフェクト */
+button:hover {
+    background-color: #1B365C;
+    transform: translateY(-2px);
+}
+
+/* ボタン風のリンクスタイル */
+.button-link {
+    display: inline-block; /* インライン要素をブロック状に変換 */
+    background-color: #3D7286;
+    color: white;
+    padding: 10px 20px;
+    font-size: 1em;
+    text-decoration: none; /* 下線を消す */
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* ホバー時のエフェクト */
+.button-link:hover {
+    background-color: #1B495C;
+    transform: translateY(-2px);
+}
+
+
+/* アイテムリスト全体のスタイル */
+#itemListContainer {
+    width: 100%;
+    max-width: 1000px;
+    background-color: #ffffff;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+    margin-top: 20px;
+}
+
+/* アイテムリストのヘッダー */
+#itemListHeader {
+    display: grid;
+    grid-template-columns: 4fr 1fr 1.5fr 1fr 1fr;
+    font-weight: bold;
+    text-align: left;
+    padding: 20px 0;
+    column-gap: 20px;
+    border-bottom: 2px solid #ddd;
+}
+
+/* 各アイテムのスタイル */
+#itemList {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+/* 各アイテムのスタイル */
+#itemList li {
+    display: grid;
+    grid-template-columns: 4fr 1fr 1.5fr 1fr 1fr;
+    align-items: center;
+    text-align: left;
+    padding: 20px 0;
+    column-gap: 20px;
+    border-bottom: 1px solid #eee;
+}
+
+/* アイテム名の省略スタイル */
+#itemList li div:first-child {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* バーコード下4桁を強調表示 */
+.barcode-suffix {
+    font-size: 24px; /* 大きくする */
+    font-weight: bold; /* 太字にする */
+    color: #FF5050; /* 目立つ色に変更 */
+    margin-left: 0px; /* 少し間隔を空ける */
+}
+
+
+/* 完了したアイテムのスタイル */
+#itemList li.complete {
+    color: #28a745;
+    font-weight: bold;
+}
+
+/* ステータスメッセージ */
+#statusMessage {
+    font-size: 1.1em;
+    color: #28a745;
+    margin-top: 15px;
+}
+
+/* 新しく読み込んだアイテムのスタイル */
+#itemList li.highlight {
+    color: #ff4500;
+    font-weight: bold;
+    background-color: #fff3e0;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* ログアウトボタンのスタイル */
+#logoutButton {
+    display: block; /* ブロック要素化を明示 */
+    margin: 0 auto; /* 中央寄せ */
+    text-align: center; /* 必要に応じて文字中央寄せ */
+}
+
+
+
+/* レスポンシブ対応 */
+@media (max-width: 600px) {
+    h1 {
+        font-size: 2em;
+    }
+
+    input[type="text"] {
+        width: 100%;
+    }
+
+    #itemListContainer {
+        padding: 15px;
+    }
+
+    button {
+        padding: 8px 16px;
+        font-size: 0.9em;
+    }
+}
+
+.modal {
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+}
+
+.modal.show {
+    opacity: 1;
+    visibility: visible;
+}
+
+.modal-content {
+    background-color: white;
+    padding: 20px;
+    border-radius: 5px;
+    width: 50%;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.3);
+    position: relative; /* 追加 */
+}
+
+#batchListContainer {
+    border: 0px solid #ccc;
+    padding: 10px;
+    background: #f9f9f9;
+    min-height: 50px;
+}
+#batchListContainer button {
+    width: 100%;
+    padding: 5px;
+    margin: 5px 0;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    cursor: pointer;
+}
+#batchListContainer button:hover {
+    background-color: #0056b3;
+}

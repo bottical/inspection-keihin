@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>検品アプリ</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="app.js" defer></script>
+</head>
+
+    
+<body data-page="registration">
+    <h1>ジェリフ様専用　CSV登録</h1>
+    <input type="file" id="csvFileInput" accept=".csv" />
+    <label>
+        <input type="checkbox" id="includeHeader" checked> ヘッダーを含む
+    </label>
+    <div>
+        <!-- <label><input type="radio" name="encoding" value="UTF-8" checked> UTF-8</label> -->
+        <label><input type="radio" name="encoding" value="Shift-JIS" checked> Shift JIS</label>
+    </div>
+    <button onclick="importCSV()">CSVからインポート</button>
+
+    <div id="statusMessage"></div>
+
+        <!-- 検品ページへのリンク -->
+    <div style="margin-top: 20px;">
+        <a href="inspection.html" class="button-link">検品ページへ移動</a>
+    </div>
+    <br>
+<!-- CSVバッチ一覧表示エリア -->
+<div id="batchListContainer">
+    <p></p>
+</div>
+
+<!-- ページ本体の進捗表示用 -->
+<div id="progressContainer"></div>
+
+<button id="progressCheckButton">進捗確認</button>
+
+
+<!-- 検品進捗モーダル -->
+<div id="progressModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal()">×</span>
+        <div id="progressContainerModal"></div>
+    </div>
+</div>
+
+
+
+
+
+
+    
+<div id="loginContainer">
+    <input type="email" id="emailInput" placeholder="メールアドレス">
+    <input type="password" id="passwordInput" placeholder="パスワード">
+    <button id="loginButton">ログイン</button>
+</div>
+
+<div id="userInfo" style="display: none;">
+    <p id="welcomeMessage"></p>
+    <button id="logoutButton" style="display: none;">ログアウト</button>
+</div>
+
+    
+</body>
+</html>
+
