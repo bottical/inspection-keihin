@@ -497,11 +497,6 @@ function resetScannedCount(pickingId) {
         });
 }
 
-// ○の強調
-function highlightFlag(label, value) {
-  return `${label}: <span style="color: ${value === "○" ? "red" : "#666"}; font-weight: ${value === "○" ? "bold" : "normal"}">${value}</span>`;
-}
-
 // アイテムリストの表示
 function displayItemList(items) {
     const itemListContainer = document.getElementById("itemListContainer");
@@ -516,42 +511,30 @@ function displayItemList(items) {
         const barcodeSuffix = barcode.slice(-4);
 
         const listItem = document.createElement("li");
-        listItem.id = `item-${item.item_id}`;
+        listItem.id = item-${item.item_id};
         listItem.className = item.item_status ? "complete" : "";
 
         const statusText = item.ins_flg === 2 ? "検品対象外" : (item.item_status ? "完了" : "未検品");
 
-        const itemDetail = document.createElement("div"); // ← 🔴 これが必要
-        itemDetail.className = "item-detail";
-        
-const flagLine = [
-  highlightFlag("包装", item.packaging_flg),
-  highlightFlag("熨斗", item.noshi_flg),
-  highlightFlag("掛け紙", item.kakegami_flg),
-  highlightFlag("短冊", item.tanzaku_flg),
-  highlightFlag("熨斗種", item.noshi_type),
-  highlightFlag("できたて便", item.dekitate_flg),
-  highlightFlag("手提げ袋", item.fukuro_flg),
-  highlightFlag("メッセージカード", item.card_flg)
-].join(" | ");
+        listItem.innerHTML = 
+            <div style="display: contents;">
+                <div>${item.item_name}</div>
+                <div>${item.lot_number}</div>
+                <div><span>${barcodePrefix}</span><span class="barcode-suffix">${barcodeSuffix}</span></div>
+                <div>${statusText}</div>
+                <div>${item.scanned_count}/${item.quantity}</div>
+            </div>
+            <div style="grid-column: 1 / -1; font-size: 0.9em; color: #666; padding-top: 5px;">
+                包装: ${item.wrapping_flag} | 熨斗: ${item.noshi_flag} | 掛紙: ${item.paper_flag} | 短冊: ${item.short_strip_flag} ｜ 熨斗種: ${item.noshi_type} ｜ できたて: ${item.fresh_flag} ｜ 袋: ${item.bag_flag} ｜ カード: ${item.message_flag}
+            </div>
+        ;
 
-itemDetail.innerHTML = `
-  <div class="item-row-top">
-    <div>${item.item_name}</div>
-    <div>${item.lot_number}</div>
-    <div>${item.barcode}</div>
-    <div>${item.item_status ? '完了' : (item.ins_flg === 2 ? '対象外' : '未検品')}</div>
-    <div>${item.scanned_count}/${item.quantity}</div>
-  </div>
-  <div class="item-row-bottom">${flagLine}</div>
-`;
-
-listItem.appendChild(itemDetail);
-itemList.appendChild(listItem);
+        itemList.appendChild(listItem);
     });
 
     itemListContainer.style.display = "block";
 }
+
 
 // アイテムの表示更新関数（初期表示とスキャン後の表示を統一）
 function updateItemDisplay(item) {
