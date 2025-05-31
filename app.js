@@ -235,11 +235,18 @@ const itemData = {
     }
 
     // Firestore にデータを追加
-    for (const pickingId in pickingsData) {
-        db.collection("Pickings").doc(pickingId).set(pickingsData[pickingId])
-            .then(() => console.log(`ピッキングID ${pickingId} のデータが追加されました`))
-            .catch(error => console.error(`Firestore 保存エラー: picking_id ${pickingId}:`, error));
-    }
+Promise.all(Object.entries(pickingsData).map(([pickingId, data]) => {
+    return db.collection("Pickings").doc(pickingId).set(data)
+        .then(() => {
+            console.log(` 登録成功: ${pickingId}`);
+        })
+        .catch(error => {
+            console.error(` 登録失敗: ${pickingId}`, error);
+        });
+})).then(() => {
+    console.log(" インポート完了");
+    document.getElementById("statusMessage").innerText = "すべてのデータがFirebaseに追加されました";
+});
 
     document.getElementById("statusMessage").innerText = "データがFirebaseに追加されました";
 }
