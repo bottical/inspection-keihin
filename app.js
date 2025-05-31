@@ -401,7 +401,7 @@ function formatShipmentDate(shipmentDate) {
 // ピッキングIDでデータを取得して表示
 function fetchPickingData() {
     const pickingIdInput = document.getElementById("pickingIdInput");
-    const pickingId = pickingIdInput.value.trim();
+    let pickingId = pickingIdInput.value.trim();
 
     if (!pickingId) {
         playSound('error.mp3', () => {
@@ -410,11 +410,19 @@ function fetchPickingData() {
         return;
     }
 
+    // 🔽 ここで6桁以上なら先頭の6桁だけを使用する
+    if (pickingId.length > 6) {
+        pickingId = pickingId.slice(0, 6);
+        console.log(`6桁に短縮されたピッキングID: ${pickingId}`);
+    }
+
     if (currentPickingId && currentPickingId !== pickingId) {
-        resetScannedCount(currentPickingId); // 異なるピッキングIDの場合にscanned_countをリセット
+        resetScannedCount(currentPickingId);
     }
 
     currentPickingId = pickingId;
+    // 以下、既存のままでOK
+
     db.collection("Pickings").doc(currentPickingId).get()
         .then((doc) => {
             if (doc.exists) {
