@@ -497,12 +497,6 @@ function resetScannedCount(pickingId) {
         });
 }
 
-// 赤くするユーティリティ関数
-function emphasizeIfCircle(value) {
-    return value === "○" ? `<span class="highlight-circle">${value}</span>` : value;
-}
-
-
 // アイテムリストの表示
 function displayItemList(items) {
     const itemListContainer = document.getElementById("itemListContainer");
@@ -526,28 +520,18 @@ function displayItemList(items) {
         // 「検品対象外」の場合、特別なマークを付けて表示 ===の先の数字なら検品対象外
         const statusText = item.ins_flg === 2 ? "検品対象外" : (item.item_status ? "完了" : "未検品");
 
-listItem.innerHTML = `
-    <div style="display: contents;">
-        <div>${item.item_name}</div>
-        <div>${item.lot_number}</div>
-        <div><span>${barcodePrefix}</span><span class="barcode-suffix">${barcodeSuffix}</span></div>
-        <div>${statusText}</div>
-        <div>${item.scanned_count}/${item.quantity}</div>
-    </div>
-    <div class="detail-line">
-        包装: <span class="${item.wrapping_flag === '○' ? 'highlight-circle' : ''}">${item.wrapping_flag}</span> |
-        熨斗: <span class="${item.noshi_flag === '○' ? 'highlight-circle' : ''}">${item.noshi_flag}</span> |
-        掛紙: <span class="${item.paper_flag === '○' ? 'highlight-circle' : ''}">${item.paper_flag}</span> |
-        短冊: <span class="${item.short_strip_flag === '○' ? 'highlight-circle' : ''}">${item.short_strip_flag}</span> |
-        熨斗種: <span>${item.noshi_type}</span> |
-        できたて: <span class="${item.fresh_flag === '○' ? 'highlight-circle' : ''}">${item.fresh_flag}</span> |
-        袋: <span class="${item.bag_flag === '○' ? 'highlight-circle' : ''}">${item.bag_flag}</span> |
-        カード: <span class="${item.message_flag === '○' ? 'highlight-circle' : ''}">${item.message_flag}</span>
-    </div>
-`;
-
-
-
+        listItem.innerHTML = `
+            <div style="display: contents;">
+                <div>${item.item_name}</div>
+                <div>${item.lot_number}</div>
+                <div><span>${barcodePrefix}</span><span class="barcode-suffix">${barcodeSuffix}</span></div>
+                <div>${statusText}</div>
+                <div>${item.scanned_count}/${item.quantity}</div>
+            </div>
+            <div style="grid-column: 1 / -1; font-size: 0.9em; color: #666; padding-top: 5px;">
+                包装: ${item.wrapping_flag} | 熨斗: ${item.noshi_flag} | 掛紙: ${item.paper_flag} | 短冊: ${item.short_strip_flag} ｜ 熨斗種: ${item.noshi_type} ｜ できたて: ${item.fresh_flag} ｜ 袋: ${item.bag_flag} ｜ カード: ${item.message_flag}
+            </div>
+        `;
 
         itemList.appendChild(listItem);
     });
@@ -953,24 +937,6 @@ document.addEventListener("DOMContentLoaded", function () {
             }
         });
     }
-
-    // 🔽🔽🔽 ここからスタイル定義追加部分 🔽🔽🔽
-const style = document.createElement('style');
-style.textContent = `
-  .highlight-circle {
-    color: red !important;
-    font-weight: bold;
-  }
-  .detail-line {
-    grid-column: 1 / -1;
-    font-size: 0.9em;
-    padding-top: 5px;
-    color: #666; /* ラベルは薄いグレーに */
-  }
-`;
-document.head.appendChild(style);
-
-    // 🔼🔼🔼 ここまでスタイル定義追加部分 🔼🔼🔼
 });
 
 const style = document.createElement('style');
