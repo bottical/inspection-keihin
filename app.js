@@ -494,35 +494,29 @@ function resetScannedCount(pickingId) {
 function displayItemList(items) {
     const itemListContainer = document.getElementById("itemListContainer");
     const itemList = document.getElementById("itemList");
-    itemList.innerHTML = ""; // 既存のリストをクリア
+    itemList.innerHTML = "";
 
     items.forEach((item) => {
-        if (item.scanned_count === undefined) {
-            item.scanned_count = 0;
-        }        
+        if (item.scanned_count === undefined) item.scanned_count = 0;
 
-       // バーコードを分割して下4桁を強調
         const barcode = item.barcode || "";
-        const barcodePrefix = barcode.slice(0, -4); // 下4桁を除いた部分
-        const barcodeSuffix = barcode.slice(-4); // 下4桁
-                
+        const barcodePrefix = barcode.slice(0, -4);
+        const barcodeSuffix = barcode.slice(-4);
+
         const listItem = document.createElement("li");
-        listItem.id = `item-${item.item_id}`; // IDを設定
+        listItem.id = `item-${item.item_id}`;
         listItem.className = item.item_status ? "complete" : "";
-        
-        // 「検品対象外」の場合、特別なマークを付けて表示 ===の先の数字なら検品対象外
+
         const statusText = item.ins_flg === 2 ? "検品対象外" : (item.item_status ? "完了" : "未検品");
 
-        // 各項目を列に分けて表示
         listItem.innerHTML = `
             <div>${item.item_name}</div>
-            <div>${item.lot_number}</div>            
-            <div>
-            <span>${barcodePrefix}</span>
-            <span class="barcode-suffix">${barcodeSuffix}</span>
-            </div>
+            <div>${item.lot_number}</div>
+            <div><span>${barcodePrefix}</span><span class="barcode-suffix">${barcodeSuffix}</span></div>
             <div>${statusText}</div>
             <div>${item.scanned_count}/${item.quantity}</div>
+            <div>包装: ${item.wrapping_flag} | 熨斗: ${item.noshi_flag} | 掛紙: ${item.paper_flag} | 短冊: ${item.short_strip_flag}</div>
+            <div>熨斗種: ${item.noshi_type} | できたて: ${item.fresh_flag} | 袋: ${item.bag_flag} | カード: ${item.message_flag}</div>
         `;
 
         itemList.appendChild(listItem);
