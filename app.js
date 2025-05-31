@@ -956,7 +956,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const style = document.createElement('style');
     style.innerHTML += `
     .highlight-circle {
-        color: red;
+        color: red !important;
         font-weight: bold;
     }
     `;
