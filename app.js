@@ -521,6 +521,9 @@ function displayItemList(items) {
 
         const statusText = item.ins_flg === 2 ? "検品対象外" : (item.item_status ? "完了" : "未検品");
 
+        const itemDetail = document.createElement("div"); // ← 🔴 これが必要
+        itemDetail.className = "item-detail";
+        
 const flagLine = [
   highlightFlag("包装", item.packaging_flg),
   highlightFlag("熨斗", item.noshi_flg),
@@ -543,8 +546,8 @@ itemDetail.innerHTML = `
   <div class="item-row-bottom">${flagLine}</div>
 `;
 
-
-        itemList.appendChild(listItem);
+listItem.appendChild(itemDetail);
+itemList.appendChild(listItem);
     });
 
     itemListContainer.style.display = "block";
