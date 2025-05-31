@@ -84,11 +84,11 @@ const clientSettings = {
         picking_id: 0,
         item_id: 3,
         item_name: 4,
-        item_quantity: 5,
-        item_barcode: 10,
-        recipient_name: 3, // 届け先氏名
-        shipment_date: 1, // 出荷作業日
-        ins_flg: 10,
+        item_quantity: 7,
+        item_barcode: 16,
+        recipient_name: 2, // 届け先氏名
+        shipment_date: 3, // 出荷作業日
+        ins_flg: 0,
         lot_number: 3
     },
     clientB: {
