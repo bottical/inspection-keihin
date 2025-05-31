@@ -510,13 +510,16 @@ function displayItemList(items) {
         const statusText = item.ins_flg === 2 ? "検品対象外" : (item.item_status ? "完了" : "未検品");
 
         listItem.innerHTML = `
-            <div>${item.item_name}</div>
-            <div>${item.lot_number}</div>
-            <div><span>${barcodePrefix}</span><span class="barcode-suffix">${barcodeSuffix}</span></div>
-            <div>${statusText}</div>
-            <div>${item.scanned_count}/${item.quantity}</div>
-            <div>包装: ${item.wrapping_flag} | 熨斗: ${item.noshi_flag} | 掛紙: ${item.paper_flag} | 短冊: ${item.short_strip_flag}</div>
-            <div>熨斗種: ${item.noshi_type} | できたて: ${item.fresh_flag} | 袋: ${item.bag_flag} | カード: ${item.message_flag}</div>
+            <div style="display: contents;">
+                <div>${item.item_name}</div>
+                <div>${item.lot_number}</div>
+                <div><span>${barcodePrefix}</span><span class="barcode-suffix">${barcodeSuffix}</span></div>
+                <div>${statusText}</div>
+                <div>${item.scanned_count}/${item.quantity}</div>
+            </div>
+            <div style="grid-column: 1 / -1; font-size: 0.9em; color: #666; padding-top: 5px;">
+                包装: ${item.wrapping_flag} | 熨斗: ${item.noshi_flag} | 掛紙: ${item.paper_flag} | 短冊: ${item.short_strip_flag} ｜ 熨斗種: ${item.noshi_type} ｜ できたて: ${item.fresh_flag} ｜ 袋: ${item.bag_flag} ｜ カード: ${item.message_flag}
+            </div>
         `;
 
         itemList.appendChild(listItem);
