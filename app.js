@@ -534,17 +534,18 @@ listItem.innerHTML = `
         <div>${statusText}</div>
         <div>${item.scanned_count}/${item.quantity}</div>
     </div>
-    <div style="grid-column: 1 / -1; font-size: 0.9em; color: #666; padding-top: 5px;">
-        包装: ${emphasizeIfCircle(item.wrapping_flag)} |
-        熨斗: ${emphasizeIfCircle(item.noshi_flag)} |
-        掛紙: ${emphasizeIfCircle(item.paper_flag)} |
-        短冊: ${emphasizeIfCircle(item.short_strip_flag)} |
-        熨斗種: ${item.noshi_type} |
-        できたて: ${emphasizeIfCircle(item.fresh_flag)} |
-        袋: ${emphasizeIfCircle(item.bag_flag)} |
-        カード: ${emphasizeIfCircle(item.message_flag)}
+    <div style="grid-column: 1 / -1; font-size: 0.9em; padding-top: 5px;">
+        <span style="color:#666;">包装: </span>${emphasizeIfCircle(item.wrapping_flag)} |
+        <span style="color:#666;">熨斗: </span>${emphasizeIfCircle(item.noshi_flag)} |
+        <span style="color:#666;">掛紙: </span>${emphasizeIfCircle(item.paper_flag)} |
+        <span style="color:#666;">短冊: </span>${emphasizeIfCircle(item.short_strip_flag)} |
+        <span style="color:#666;">熨斗種: </span><span>${item.noshi_type}</span> |
+        <span style="color:#666;">できたて: </span>${emphasizeIfCircle(item.fresh_flag)} |
+        <span style="color:#666;">袋: </span>${emphasizeIfCircle(item.bag_flag)} |
+        <span style="color:#666;">カード: </span>${emphasizeIfCircle(item.message_flag)}
     </div>
 `;
+
 
 
         itemList.appendChild(listItem);
