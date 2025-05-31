@@ -502,6 +502,15 @@ function emphasizeIfCircle(value) {
     return value === "○" ? `<span class="highlight-circle">${value}</span>` : value;
 }
 
+const style = document.createElement('style');
+style.innerHTML += `
+.highlight-circle {
+    color: red;
+    font-weight: bold;
+}
+`;
+document.head.appendChild(style);
+
 // アイテムリストの表示
 function displayItemList(items) {
     const itemListContainer = document.getElementById("itemListContainer");
