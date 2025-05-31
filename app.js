@@ -497,20 +497,6 @@ function resetScannedCount(pickingId) {
         });
 }
 
-// 赤くするユーティリティ関数
-function emphasizeIfCircle(value) {
-    return value === "○" ? `<span class="highlight-circle">${value}</span>` : value;
-}
-
-const style = document.createElement('style');
-style.innerHTML += `
-.highlight-circle {
-    color: red;
-    font-weight: bold;
-}
-`;
-document.head.appendChild(style);
-
 // アイテムリストの表示
 function displayItemList(items) {
     const itemListContainer = document.getElementById("itemListContainer");
@@ -534,26 +520,18 @@ function displayItemList(items) {
         // 「検品対象外」の場合、特別なマークを付けて表示 ===の先の数字なら検品対象外
         const statusText = item.ins_flg === 2 ? "検品対象外" : (item.item_status ? "完了" : "未検品");
 
-listItem.innerHTML = `
-    <div style="display: contents;">
-        <div>${item.item_name}</div>
-        <div>${item.lot_number}</div>
-        <div><span>${barcodePrefix}</span><span class="barcode-suffix">${barcodeSuffix}</span></div>
-        <div>${statusText}</div>
-        <div>${item.scanned_count}/${item.quantity}</div>
-    </div>
-    <div style="grid-column: 1 / -1; font-size: 0.9em; color: #666; padding-top: 5px;">
-        包装: ${emphasizeIfCircle(item.wrapping_flag)} |
-        熨斗: ${emphasizeIfCircle(item.noshi_flag)} |
-        掛紙: ${emphasizeIfCircle(item.paper_flag)} |
-        短冊: ${emphasizeIfCircle(item.short_strip_flag)} |
-        熨斗種: ${item.noshi_type} |
-        できたて: ${emphasizeIfCircle(item.fresh_flag)} |
-        袋: ${emphasizeIfCircle(item.bag_flag)} |
-        カード: ${emphasizeIfCircle(item.message_flag)}
-    </div>
-`;
-
+        listItem.innerHTML = `
+            <div style="display: contents;">
+                <div>${item.item_name}</div>
+                <div>${item.lot_number}</div>
+                <div><span>${barcodePrefix}</span><span class="barcode-suffix">${barcodeSuffix}</span></div>
+                <div>${statusText}</div>
+                <div>${item.scanned_count}/${item.quantity}</div>
+            </div>
+            <div style="grid-column: 1 / -1; font-size: 0.9em; color: #666; padding-top: 5px;">
+                包装: ${item.wrapping_flag} | 熨斗: ${item.noshi_flag} | 掛紙: ${item.paper_flag} | 短冊: ${item.short_strip_flag} ｜ 熨斗種: ${item.noshi_type} ｜ できたて: ${item.fresh_flag} ｜ 袋: ${item.bag_flag} ｜ カード: ${item.message_flag}
+            </div>
+        `;
 
         itemList.appendChild(listItem);
     });
@@ -967,5 +945,3 @@ style.innerHTML = `
 .picking-pending { background-color: #f8d7da; padding: 10px; margin-bottom: 5px; }
 `;
 document.head.appendChild(style);
-
-
