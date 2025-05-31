@@ -181,16 +181,41 @@ function parseCSV(text, clientConfig) {
 
         const isExcluded = insFlg === 2;
 
-        const itemData = {
-            item_id: columns[clientConfig.item_id] || "UNKNOWN",
-            item_name: columns[clientConfig.item_name] || "不明な商品",
-            quantity: parseInt(columns[clientConfig.item_quantity] || "0", 10),
-            barcode: barcode,
-            ins_flg: insFlg,
-            lot_number: columns[clientConfig.lot_number] || "NO_LOT",
-            item_status: isExcluded,
-            scanned_count: isExcluded ? parseInt(columns[clientConfig.item_quantity] || "0", 10) : 0
-        };
+const unitPrice = parseFloat(columns[5] || "0");
+const taxRate = parseFloat(columns[6] || "0");
+const taxIncludedPrice = Math.round(unitPrice * (1 + taxRate));
+
+function flagTransform(value) {
+    return value === "あり" ? "○" : "-";
+}
+
+function noshiTransform(value) {
+    if (value === "外熨斗") return "外";
+    if (value === "内熨斗") return "内";
+    return "-";
+}
+
+const itemData = {
+    item_id: columns[clientConfig.item_id] || "UNKNOWN",
+    item_name: columns[clientConfig.item_name] || "不明な商品",
+    quantity: parseInt(columns[clientConfig.item_quantity] || "0", 10),
+    barcode: barcode,
+    ins_flg: insFlg,
+    lot_number: taxIncludedPrice + "円", // ロット番号の代わりに税込価格
+    item_status: isExcluded,
+    scanned_count: isExcluded ? parseInt(columns[clientConfig.item_quantity] || "0", 10) : 0,
+
+    // 新しいカスタム項目として追加するなら下記
+    wrapping_flag: flagTransform(columns[8]),
+    noshi_flag: flagTransform(columns[9]),
+    paper_flag: flagTransform(columns[10]),
+    short_strip_flag: flagTransform(columns[11]),
+    noshi_type: noshiTransform(columns[12]),
+    fresh_flag: flagTransform(columns[13]),
+    bag_flag: flagTransform(columns[14]),
+    message_flag: flagTransform(columns[15])
+};
+
 
         // ピッキングIDごとにデータをまとめる
         if (pickingsData[pickingId]) {
