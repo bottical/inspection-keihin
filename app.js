@@ -181,9 +181,9 @@ function parseCSV(text, clientConfig) {
 
         const isExcluded = insFlg === 2;
 
-const unitPrice = parseFloat(columns[5] || "0");
-const taxRate = parseFloat(columns[6] || "0");
-const taxIncludedPrice = Math.round(unitPrice * (1 + taxRate));
+const taxIncludedPrice = parseFloat(columns[5] || "0"); // 5列目：税込価格
+const taxRate = parseFloat(columns[6] || "0"); // 6列目：税率（例：0.1 で10%）
+const unitPrice = Math.round(taxIncludedPrice / (1 + taxRate)); // 税抜価格（四捨五入）
 
 function flagTransform(value) {
     return value === "あり" ? "○" : "-";
@@ -201,7 +201,7 @@ const itemData = {
     quantity: parseInt(columns[clientConfig.item_quantity] || "0", 10),
     barcode: barcode,
     ins_flg: insFlg,
-    lot_number: taxIncludedPrice + "円", // ロット番号の代わりに税込価格
+    lot_number: unitPrice + "円", // ロット番号の代わりに税抜価格
     item_status: isExcluded,
     scanned_count: isExcluded ? parseInt(columns[clientConfig.item_quantity] || "0", 10) : 0,
 
