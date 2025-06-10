@@ -534,9 +534,9 @@ function displayItemList(items) {
                 <div>${item.lot_number}</div>
                 <div><span>${barcodePrefix}</span><span class="barcode-suffix">${barcodeSuffix}</span></div>
                 <div>${statusText}</div>
-                <div>${item.scanned_count}/${item.quantity}</div>
+                <div style="font-size: 1.2em;">${item.scanned_count}/${item.quantity}</div>
             </div>
-            <div style="grid-column: 1 / -1; font-size: 0.9em; color: #666; padding-top: 5px;">
+            <div style="grid-column: 1 / -1; font-size: 1.2em; color: #666; padding-top: 5px;">
                 包装: ${item.wrapping_flag} | 熨斗: ${item.noshi_flag} | 掛紙: ${item.paper_flag} | 短冊: ${item.short_strip_flag} ｜ 熨斗種: ${item.noshi_type} ｜ できたて: ${item.fresh_flag} ｜ 袋: ${item.bag_flag} ｜ カード: ${item.message_flag}
             </div>
         `;
