@@ -183,10 +183,10 @@ function parseCSV(text, clientConfig) {
 
 const taxIncludedPrice = parseFloat(columns[5] || "0"); // 5列目：税込価格
 const taxRate = parseFloat(columns[6] || "0"); // 6列目：税率（例：0.1 で10%）
-const unitPrice = Math.round(taxIncludedPrice / (1 + taxRate)); // 税抜価格（四捨五入）
+const unitPrice = Math.ceil(taxIncludedPrice / (1 + taxRate)); // 税抜価格（切り上げ）
 
 function flagTransform(value) {
-    return value === "あり" ? "○" : "-";
+    return value === "あり" ? "◯" : "✕";
 }
 
 function noshiTransform(value) {
