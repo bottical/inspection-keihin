@@ -523,6 +523,8 @@ function createItemElement(item) {
         : item.scanned_count > 0
             ? "検品中"
             : "未検品";
+    
+    const statusClass = statusText;
 
     listItem.innerHTML = `
         <div style="display: contents;">
