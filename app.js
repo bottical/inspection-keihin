@@ -516,7 +516,13 @@ function createItemElement(item) {
     listItem.id = `item-${item.item_id}`;
     listItem.className = item.item_status ? "complete" : "";
 
-    const statusText = item.ins_flg === 2 ? "検品対象外" : (item.item_status ? "完了" : "未検品");
+    const statusText = item.ins_flg === 2
+    ? "検品対象外"
+    : item.item_status
+        ? "完了"
+        : item.scanned_count > 0
+            ? "検品中"
+            : "未検品";
 
     listItem.innerHTML = `
         <div style="display: contents;">
