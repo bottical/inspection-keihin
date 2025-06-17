@@ -617,6 +617,7 @@ function scanBarcode() {
                             barcodeInput.focus();
                         }
                     });
+                    displayItemList(updatedItems);
                 }
 
                 const updateData = { items: updatedItems, status: allInspected };
