@@ -529,7 +529,7 @@ function createItemElement(item) {
             <div style="font-size: 1.2em;">${item.item_name}</div>
             <div>${item.lot_number}</div>
             <div><span>${barcodePrefix}</span><span class="barcode-suffix">${barcodeSuffix}</span></div>
-            <div>${statusText}</div>
+            <div class="status ${statusClass}">${statusText}</div>
             <div style="font-size: 1.5em;">${item.scanned_count}/${item.quantity}</div>
         </div>
         <div style="grid-column: 1 / -1; font-size: 1.1em; color: #666; padding-top: 5px; padding-left: 10px;">
