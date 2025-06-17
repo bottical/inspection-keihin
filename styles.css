@@ -141,6 +141,10 @@ button:hover {
     font-weight: bold;
 }
 
+.status {
+  font-weight: bold;
+}
+
 .status.検品中 { color: orange; }
 .status.完了 { color: green; }
 .status.未検品 { color: gray; }
