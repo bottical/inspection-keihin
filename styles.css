@@ -141,6 +141,12 @@ button:hover {
     font-weight: bold;
 }
 
+.status.検品中 { color: orange; }
+.status.完了 { color: green; }
+.status.未検品 { color: gray; }
+.status.検品対象外 { color: #999; font-style: italic; }
+
+
 /* ステータスメッセージ */
 #statusMessage {
     font-size: 1.1em;
