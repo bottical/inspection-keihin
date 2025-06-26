@@ -410,10 +410,10 @@ function fetchPickingData() {
         return;
     }
 
-    // 🔽 ここで6桁以上なら先頭の6桁だけを使用する
-    if (pickingId.length > 6) {
-        pickingId = pickingId.slice(0, 6);
-        console.log(`6桁に短縮されたピッキングID: ${pickingId}`);
+    // 🔽 8桁以上なら先頭の8桁を取得し、先頭の0をすべて除去
+    if (pickingId.length >= 8) {
+    pickingId = pickingId.slice(0, 8).replace(/^0+/, '');
+    console.log(`8桁取得後、先頭の0を除去したピッキングID: ${pickingId}`);
     }
 
     if (currentPickingId && currentPickingId !== pickingId) {
