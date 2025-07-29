@@ -136,101 +136,81 @@ function importCSV() {
     reader.readAsArrayBuffer(fileInput); // ArrayBufferとして読み込む
 }
 
+// picking_id を picking_id/item_id（2桁ゼロ埋め）に統合した parseCSV 部分のみ改修
+
 function parseCSV(text, clientConfig) {
     const includeHeader = document.getElementById("includeHeader").checked;
-    const csvBatchId = getFormattedTimestamp(); // 新しい一意のバッチIDを作成
+    const csvBatchId = getFormattedTimestamp();
 
-    // ダブルクォーテーション内の改行を正しく処理
     text = text.replace(/"(.*?)"/gs, (match) => {
-        return match.replace(/\n/g, " "); // ダブルクォーテーション内の改行をスペースに置き換え
+        return match.replace(/\n/g, " ");
     });
 
-    // 改行で分割
     let rows = text.split("\n");
-
-    // ヘッダーをスキップ
     const startIndex = includeHeader ? 1 : 0;
 
-    // Firestore に送るデータの格納オブジェクト
     const pickingsData = {};
-    const importDate = getFormattedDate(); // 現在の日付を取得
+    const importDate = getFormattedDate();
 
     for (let i = startIndex; i < rows.length; i++) {
         const row = rows[i].trim();
-        if (!row) continue; // 空行をスキップ
+        if (!row) continue;
 
-        // CSV のカンマを正しく処理（ダブルクォーテーション内のカンマを無視）
-       const columns = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(col => col.replace(/^"|"$/g, ''));
+        const columns = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(col => col.replace(/^"|"$/g, ''));
 
-        console.log("CSVデータ:", columns);
-        console.log(`Row ${i}: recipient_name (列5のデータ):`, columns[5]);  // 現在の設定
-        console.log(`Row ${i}: recipient_name (実際の12列目のデータ):`, columns[11]);  // 修正後に期待する値
-        console.log("CSVの列数:", columns.length);  // どこまでデータが入っているか確認
-        
-        
-        // ピッキングIDの取得
-        const pickingId = columns[clientConfig.picking_id] || `UNKNOWN_${i}`;
+        const basePickingId = columns[clientConfig.picking_id] || `UNKNOWN_${i}`;
         const itemIdRaw = columns[clientConfig.item_id] || "0";
         const itemIdPadded = itemIdRaw.toString().padStart(2, "0");
-        // キーを picking_id/item_id（ゼロ埋め2桁）形式に変換
-        const combinedId = `${pickingId}/${itemIdPadded}`;
+        const pickingId = `${basePickingId}/${itemIdPadded}`;
 
         let insFlg = parseInt(columns[clientConfig.ins_flg] || "0", 10);
         const barcode = columns[clientConfig.item_barcode] || "NO_BARCODE";
-
-        // NO_BARCODE の場合は自動的に ins_flg = 2 にする
-        if (barcode === "NO_BARCODE") {
-            insFlg = 2;
-        }
-
+        if (barcode === "NO_BARCODE") insFlg = 2;
         const isExcluded = insFlg === 2;
 
-const taxIncludedPrice = parseFloat(columns[5] || "0"); // 5列目：税込価格
-const taxRate = parseFloat(columns[6] || "0"); // 6列目：税率（例：0.1 で10%）
-const unitPrice = Math.ceil(taxIncludedPrice / (1 + taxRate)); // 税抜価格（切り上げ）
+        const taxIncludedPrice = parseFloat(columns[5] || "0");
+        const taxRate = parseFloat(columns[6] || "0");
+        const unitPrice = Math.ceil(taxIncludedPrice / (1 + taxRate));
 
-function flagTransform(value) {
-    return value === "あり" ? "◯" : "✕";
-}
+        function flagTransform(value) {
+            return value === "あり" ? "◯" : "✕";
+        }
 
-function noshiTransform(value) {
-    if (value === "外熨斗") return "外";
-    if (value === "内熨斗") return "内";
-    return "-";
-}
+        function noshiTransform(value) {
+            if (value === "外熨斗") return "外";
+            if (value === "内熨斗") return "内";
+            return "-";
+        }
 
-const itemData = {
-    item_id: columns[clientConfig.item_id] || "UNKNOWN",
-    item_name: columns[clientConfig.item_name] || "不明な商品",
-    quantity: parseInt(columns[clientConfig.item_quantity] || "0", 10),
-    barcode: barcode,
-    ins_flg: insFlg,
-    lot_number: unitPrice + "円", // ロット番号の代わりに税抜価格
-    item_status: isExcluded,
-    scanned_count: isExcluded ? parseInt(columns[clientConfig.item_quantity] || "0", 10) : 0,
+        const itemData = {
+            item_id: itemIdRaw,
+            item_name: columns[clientConfig.item_name] || "不明な商品",
+            quantity: parseInt(columns[clientConfig.item_quantity] || "0", 10),
+            barcode: barcode,
+            ins_flg: insFlg,
+            lot_number: unitPrice + "円",
+            item_status: isExcluded,
+            scanned_count: isExcluded ? parseInt(columns[clientConfig.item_quantity] || "0", 10) : 0,
 
-    // 新しいカスタム項目として追加するなら下記
-    wrapping_flag: flagTransform(columns[8]),
-    noshi_flag: flagTransform(columns[9]),
-    paper_flag: flagTransform(columns[10]),
-    short_strip_flag: flagTransform(columns[11]),
-    noshi_type: noshiTransform(columns[12]),
-    fresh_flag: flagTransform(columns[13]),
-    bag_flag: flagTransform(columns[14]),
-    message_flag: flagTransform(columns[15])
-};
+            wrapping_flag: flagTransform(columns[8]),
+            noshi_flag: flagTransform(columns[9]),
+            paper_flag: flagTransform(columns[10]),
+            short_strip_flag: flagTransform(columns[11]),
+            noshi_type: noshiTransform(columns[12]),
+            fresh_flag: flagTransform(columns[13]),
+            bag_flag: flagTransform(columns[14]),
+            message_flag: flagTransform(columns[15])
+        };
 
-
-        // ピッキングIDごとにデータをまとめる
-        if (pickingsData[combinedId]) {
-            pickingsData[combinedId].items.push(itemData);
+        if (pickingsData[pickingId]) {
+            pickingsData[pickingId].items.push(itemData);
         } else {
             pickingsData[pickingId] = {
-                picking_id: combinedId,
+                picking_id: pickingId,
                 user_id: getCurrentUserId() || "UNKNOWN_USER",
                 recipient_name: columns[clientConfig.recipient_name] || "不明な受取人",
                 shipment_date: importDate,
-                csv_batch_id: csvBatchId, // 新しく追加
+                csv_batch_id: csvBatchId,
                 items: [itemData],
                 status: false,
                 created_at: firebase.firestore.FieldValue.serverTimestamp()
@@ -238,22 +218,19 @@ const itemData = {
         }
     }
 
-    // Firestore にデータを追加
-Promise.all(Object.entries(pickingsData).map(([pickingId, data]) => {
-    return db.collection("Pickings").doc(pickingId).set(data)
-        .then(() => {
-            console.log(` 登録成功: ${pickingId}`);
-        })
-        .catch(error => {
-            console.error(` 登録失敗: ${pickingId}`, error);
-        });
-})).then(() => {
-    console.log(" インポート完了");
-    document.getElementById("statusMessage").innerText = "すべてのデータがFirebaseに追加されました";
-});
+    // Firestore へ登録
+    Promise.all(Object.entries(pickingsData).map(([pickingId, data]) => {
+        return db.collection("Pickings").doc(pickingId).set(data)
+            .then(() => console.log(`登録成功: ${pickingId}`))
+            .catch(error => console.error(`登録失敗: ${pickingId}`, error));
+    })).then(() => {
+        console.log("インポート完了");
+        document.getElementById("statusMessage").innerText = "すべてのデータがFirebaseに追加されました";
+    });
 
     document.getElementById("statusMessage").innerText = "データがFirebaseに追加されました";
 }
+
 
 // CSVバッチIDを作成 (例: 20240203-153045)
 function getFormattedTimestamp() {
