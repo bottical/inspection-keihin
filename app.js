@@ -403,10 +403,10 @@ function fetchPickingData() {
         return;
     }
 
-    // 🔽 8桁以上なら先頭の8桁を取得し、先頭の0を除去
-    if (pickingIdRaw.length >= 8) {
-        pickingIdRaw = pickingIdRaw.slice(0, 8).replace(/^0+/, '');
-        console.log(`8桁取得後、先頭の0を除去したピッキングID: ${pickingIdRaw}`);
+    // 🔽 8桁以上なら先頭の9桁を取得し、先頭の0を除去
+    if (pickingIdRaw.length >= 9) {
+        pickingIdRaw = pickingIdRaw.slice(0, 9).replace(/^0+/, '');
+        console.log(`9桁取得後、先頭の0を除去したピッキングID: ${pickingIdRaw}`);
     }
 
     // 🔽 Firestore用に変換（/ → __）
