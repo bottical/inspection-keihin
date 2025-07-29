@@ -82,7 +82,7 @@ function saveDataWithUser(data) {
 const clientSettings = {
     clientA: {
         picking_id: 0,
-        item_id: 3,
+        item_id: 1,
         item_name: 4,
         item_quantity: 7,
         item_barcode: 16,
@@ -170,6 +170,10 @@ function parseCSV(text, clientConfig) {
         
         // ピッキングIDの取得
         const pickingId = columns[clientConfig.picking_id] || `UNKNOWN_${i}`;
+        const itemIdRaw = columns[clientConfig.item_id] || "0";
+        const itemIdPadded = itemIdRaw.toString().padStart(2, "0");
+        // キーを picking_id/item_id（ゼロ埋め2桁）形式に変換
+        const combinedId = `${pickingId}/${itemIdPadded}`;
 
         let insFlg = parseInt(columns[clientConfig.ins_flg] || "0", 10);
         const barcode = columns[clientConfig.item_barcode] || "NO_BARCODE";
@@ -218,11 +222,11 @@ const itemData = {
 
 
         // ピッキングIDごとにデータをまとめる
-        if (pickingsData[pickingId]) {
-            pickingsData[pickingId].items.push(itemData);
+        if (pickingsData[combinedId]) {
+            pickingsData[combinedId].items.push(itemData);
         } else {
             pickingsData[pickingId] = {
-                picking_id: pickingId,
+                picking_id: combinedId,
                 user_id: getCurrentUserId() || "UNKNOWN_USER",
                 recipient_name: columns[clientConfig.recipient_name] || "不明な受取人",
                 shipment_date: importDate,
