@@ -136,6 +136,14 @@ function importCSV() {
     reader.readAsArrayBuffer(fileInput); // ArrayBufferとして読み込む
 }
 
+function sanitizePickingIdForFirestore(pickingId) {
+    return pickingId.replaceAll("/", "__");
+}
+
+function desanitizePickingIdFromFirestore(safeId) {
+    return safeId.replaceAll("__", "/");
+}
+
 // picking_id を picking_id/item_id（2桁ゼロ埋め）に統合した parseCSV 部分のみ改修
 
 function parseCSV(text, clientConfig) {
@@ -158,10 +166,14 @@ function parseCSV(text, clientConfig) {
 
         const columns = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(col => col.replace(/^"|"$/g, ''));
 
-        const basePickingId = columns[clientConfig.picking_id] || `UNKNOWN_${i}`;
-        const itemIdRaw = columns[clientConfig.item_id] || "0";
-        const itemIdPadded = itemIdRaw.toString().padStart(2, "0");
-        const pickingId = `${basePickingId}/${itemIdPadded}`;
+const basePickingId = columns[clientConfig.picking_id] || `UNKNOWN_${i}`;
+const itemIdRaw = columns[clientConfig.item_id] || "0";
+const itemIdPadded = itemIdRaw.toString().padStart(2, "0");
+
+//  スラッシュありの表示用IDと、Firestore用IDを分ける
+const pickingIdOriginal = `${basePickingId}/${itemIdPadded}`;
+const pickingId = sanitizePickingIdForFirestore(pickingIdOriginal);
+
 
         let insFlg = parseInt(columns[clientConfig.ins_flg] || "0", 10);
         const barcode = columns[clientConfig.item_barcode] || "NO_BARCODE";
@@ -206,7 +218,7 @@ function parseCSV(text, clientConfig) {
             pickingsData[pickingId].items.push(itemData);
         } else {
             pickingsData[pickingId] = {
-                picking_id: pickingId,
+                picking_id: pickingIdOriginal,
                 user_id: getCurrentUserId() || "UNKNOWN_USER",
                 recipient_name: columns[clientConfig.recipient_name] || "不明な受取人",
                 shipment_date: importDate,
@@ -382,32 +394,36 @@ function formatShipmentDate(shipmentDate) {
 // ピッキングIDでデータを取得して表示
 function fetchPickingData() {
     const pickingIdInput = document.getElementById("pickingIdInput");
-    let pickingId = pickingIdInput.value.trim();
+    let pickingIdRaw = pickingIdInput.value.trim();
 
-    if (!pickingId) {
+    if (!pickingIdRaw) {
         playSound('error.mp3', () => {
             alert("ピッキングIDを入力してください。");
         });
         return;
     }
 
-    // 🔽 8桁以上なら先頭の8桁を取得し、先頭の0をすべて除去
-    if (pickingId.length >= 8) {
-    pickingId = pickingId.slice(0, 8).replace(/^0+/, '');
-    console.log(`8桁取得後、先頭の0を除去したピッキングID: ${pickingId}`);
+    // 🔽 8桁以上なら先頭の8桁を取得し、先頭の0を除去
+    if (pickingIdRaw.length >= 8) {
+        pickingIdRaw = pickingIdRaw.slice(0, 8).replace(/^0+/, '');
+        console.log(`8桁取得後、先頭の0を除去したピッキングID: ${pickingIdRaw}`);
     }
 
-    if (currentPickingId && currentPickingId !== pickingId) {
+    // 🔽 Firestore用に変換（/ → __）
+    const sanitizedId = sanitizePickingIdForFirestore(pickingIdRaw);
+
+    // 🔽 現在のIDと異なれば前のデータをリセット
+    if (currentPickingId && currentPickingId !== sanitizedId) {
         resetScannedCount(currentPickingId);
     }
 
-    currentPickingId = pickingId;
-    // 以下、既存のままでOK
+    currentPickingId = sanitizedId;
 
     db.collection("Pickings").doc(currentPickingId).get()
         .then((doc) => {
             if (doc.exists) {
                 const data = doc.data();
+
                 if (data.status === true) {
                     playSound('error.mp3', () => {
                         alert("このピッキングIDはすでに検品済みです。");
@@ -418,10 +434,9 @@ function fetchPickingData() {
                     playSound('success.mp3'); // 成功音
                     displayItemList(data.items);
 
-                    // 検品中のピッキングIDを表示
-                    document.getElementById("currentPickingIdDisplay").textContent = `現在検品中のピッキングID: ${currentPickingId}`;
-                    
-                    // 届け先氏名とフォーマットされた発送日を表示
+                    // 🔽 表示にはオリジナルのID（スラッシュあり）を使用
+                    document.getElementById("currentPickingIdDisplay").textContent = `現在検品中のピッキングID: ${data.picking_id || desanitizePickingIdFromFirestore(currentPickingId)}`;
+
                     document.getElementById("recipientNameDisplay").textContent = `届け先氏名: ${data.recipient_name || "未設定"}`;
                     document.getElementById("shipmentDateDisplay").textContent = `発送日: ${formatShipmentDate(data.shipment_date)}`;
                     document.getElementById("barcodeInput").focus();
@@ -432,9 +447,9 @@ function fetchPickingData() {
                 });
                 currentPickingId = null;
                 pickingIdInput.focus();
-                document.getElementById("currentPickingIdDisplay").textContent = ""; // ピッキングID表示をクリア
-                document.getElementById("recipientNameDisplay").textContent = "届け先氏名: 不明"; // 届け先氏名をクリア
-                document.getElementById("shipmentDateDisplay").textContent = "発送日: 不明"; // 発送日をクリア
+                document.getElementById("currentPickingIdDisplay").textContent = "";
+                document.getElementById("recipientNameDisplay").textContent = "届け先氏名: 不明";
+                document.getElementById("shipmentDateDisplay").textContent = "発送日: 不明";
             }
         })
         .catch((error) => {
@@ -453,16 +468,18 @@ function fetchPickingData() {
 
 
 
+
 // 異なるピッキングIDが入力された場合にscanned_countをリセット
-function resetScannedCount(pickingId) {
+function resetScannedCount(pickingIdRaw) {
+    const pickingId = sanitizePickingIdForFirestore(pickingIdRaw);
+
     db.collection("Pickings").doc(pickingId).get()
         .then((doc) => {
             if (doc.exists) {
                 const data = doc.data();
 
-                // 検品済みであればリセットしない
                 if (data.status === true) {
-                    console.log(`ピッキングID ${pickingId} は既に検品済みのためリセットをスキップします。`);
+                    console.log(`ピッキングID ${desanitizePickingIdFromFirestore(pickingId)} は既に検品済みのためリセットをスキップします。`);
                     return;
                 }
 
@@ -472,12 +489,11 @@ function resetScannedCount(pickingId) {
                     return item;
                 });
 
-                // Firestoreにリセット状態を更新
-                db.collection("Pickings").doc(pickingId).update({
+                return db.collection("Pickings").doc(pickingId).update({
                     items: resetItems,
                     status: false
                 }).then(() => {
-                    console.log(`ピッキングID ${pickingId} の検品データをリセットしました。`);
+                    console.log(`ピッキングID ${desanitizePickingIdFromFirestore(pickingId)} の検品データをリセットしました。`);
                 });
             }
         })
