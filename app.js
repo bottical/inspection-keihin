@@ -113,134 +113,172 @@ function getFormattedDate() {
     return `${year}${month}${day}`;
 }
 
-// CSV読み込み機能
+// ==== インポート中の離脱防止処理 ====
+let isImporting = false; // インポート処理中フラグ
+
+// ページ離脱時に警告を出す
+window.addEventListener("beforeunload", function (e) {
+  if (isImporting) {
+    e.preventDefault();
+    e.returnValue = "インポート処理がまだ完了していません。本当にページを離れますか？";
+  }
+});
+
+// 既存の importCSV を拡張
 function importCSV() {
-    const fileInput = document.getElementById("csvFileInput").files[0];
-    if (!fileInput) {
-        alert("CSVファイルを選択してください。");
-        return;
+  if (isImporting) {
+    alert("すでにインポート中です。");
+    return;
+  }
+  isImporting = true;
+
+  const fileInput = document.getElementById("csvFileInput").files[0];
+  if (!fileInput) {
+    alert("CSVファイルを選択してください。");
+    isImporting = false;
+    return;
+  }
+
+  // 使用するクライアントを選択（例としてclientAを使用）
+  const currentClient = clientSettings.clientA;
+
+  const encoding = document.querySelector('input[name="encoding"]:checked').value;
+  const reader = new FileReader();
+
+  reader.onload = function (event) {
+    try {
+      const uint8Array = new Uint8Array(event.target.result);
+      const text = new TextDecoder(encoding).decode(uint8Array);
+      // parseCSV 内の Promise チェーンの finally で isImporting が false になります
+      parseCSV(text, currentClient);
+    } catch (e) {
+      console.error("CSV解析中に例外:", e);
+      alert("CSVの解析中にエラーが発生しました。");
+      isImporting = false; // ここでも必ず解除
     }
+  };
 
-    // 使用するクライアントを選択（例としてclientAを使用）
-    const currentClient = clientSettings.clientA;
+  reader.onerror = function (e) {
+    console.error("CSVファイル読込エラー:", e);
+    alert("CSVファイルの読み込みに失敗しました。");
+    isImporting = false; // 読込失敗でも解除
+  };
 
-    const encoding = document.querySelector('input[name="encoding"]:checked').value;
-    const reader = new FileReader();
-
-    reader.onload = function (event) {
-        const uint8Array = new Uint8Array(event.target.result);
-        const text = new TextDecoder(encoding).decode(uint8Array);
-        parseCSV(text, currentClient); // currentClientを引数として渡す
-    };
-
-    reader.readAsArrayBuffer(fileInput); // ArrayBufferとして読み込む
+  reader.readAsArrayBuffer(fileInput); // ArrayBufferとして読み込む
 }
 
 function sanitizePickingIdForFirestore(pickingId) {
-    return pickingId.replaceAll("/", "__");
+  return pickingId.replaceAll("/", "__");
 }
 
 function desanitizePickingIdFromFirestore(safeId) {
-    return safeId.replaceAll("__", "/");
+  return safeId.replaceAll("__", "/");
 }
 
-// picking_id を picking_id/item_id（2桁ゼロ埋め）に統合した parseCSV 部分のみ改修
-
+// picking_id を picking_id/item_id（2桁ゼロ埋め）に統合した parseCSV
 function parseCSV(text, clientConfig) {
-    const includeHeader = document.getElementById("includeHeader").checked;
-    const csvBatchId = getFormattedTimestamp();
+  const includeHeader = document.getElementById("includeHeader").checked;
+  const csvBatchId = getFormattedTimestamp();
 
-    text = text.replace(/"(.*?)"/gs, (match) => {
-        return match.replace(/\n/g, " ");
-    });
+  text = text.replace(/"(.*?)"/gs, (match) => {
+    return match.replace(/\n/g, " ");
+  });
 
-    let rows = text.split("\n");
-    const startIndex = includeHeader ? 1 : 0;
+  let rows = text.split("\n");
+  const startIndex = includeHeader ? 1 : 0;
 
-    const pickingsData = {};
-    const importDate = getFormattedDate();
+  const pickingsData = {};
+  const importDate = getFormattedDate();
 
-    for (let i = startIndex; i < rows.length; i++) {
-        const row = rows[i].trim();
-        if (!row) continue;
+  for (let i = startIndex; i < rows.length; i++) {
+    const row = rows[i].trim();
+    if (!row) continue;
 
-        const columns = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(col => col.replace(/^"|"$/g, ''));
+    const columns = row
+      .split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/)
+      .map(col => col.replace(/^"|"$/g, ''));
 
-const basePickingId = columns[clientConfig.picking_id] || `UNKNOWN_${i}`;
-const itemIdRaw = columns[clientConfig.item_id] || "0";
-const itemIdPadded = itemIdRaw.toString().padStart(2, "0");
+    const basePickingId = columns[clientConfig.picking_id] || `UNKNOWN_${i}`;
+    const itemIdRaw    = columns[clientConfig.item_id] || "0";
+    const itemIdPadded = itemIdRaw.toString().padStart(2, "0");
 
-//  スラッシュありの表示用IDと、Firestore用IDを分ける
-const pickingIdOriginal = `${basePickingId}/${itemIdPadded}`;
-const pickingId = sanitizePickingIdForFirestore(pickingIdOriginal);
+    // 表示用（/あり）と Firestore用（/→__）を分ける
+    const pickingIdOriginal = `${basePickingId}/${itemIdPadded}`;
+    const pickingId = sanitizePickingIdForFirestore(pickingIdOriginal);
 
+    let insFlg = parseInt(columns[clientConfig.ins_flg] || "0", 10);
+    const barcode = columns[clientConfig.item_barcode] || "NO_BARCODE";
+    if (barcode === "NO_BARCODE") insFlg = 2;
+    const isExcluded = insFlg === 2;
 
-        let insFlg = parseInt(columns[clientConfig.ins_flg] || "0", 10);
-        const barcode = columns[clientConfig.item_barcode] || "NO_BARCODE";
-        if (barcode === "NO_BARCODE") insFlg = 2;
-        const isExcluded = insFlg === 2;
+    const taxIncludedPrice = parseFloat(columns[5] || "0");
+    const taxRate = parseFloat(columns[6] || "0");
+    const unitPrice = Math.ceil(taxIncludedPrice / (1 + taxRate));
 
-        const taxIncludedPrice = parseFloat(columns[5] || "0");
-        const taxRate = parseFloat(columns[6] || "0");
-        const unitPrice = Math.ceil(taxIncludedPrice / (1 + taxRate));
-
-        function flagTransform(value) {
-            return value === "あり" ? "◯" : "✕";
-        }
-
-        function noshiTransform(value) {
-            if (value === "外熨斗") return "外";
-            if (value === "内熨斗") return "内";
-            return "-";
-        }
-
-        const itemData = {
-            item_id: itemIdRaw,
-            item_name: columns[clientConfig.item_name] || "不明な商品",
-            quantity: parseInt(columns[clientConfig.item_quantity] || "0", 10),
-            barcode: barcode,
-            ins_flg: insFlg,
-            lot_number: unitPrice + "円",
-            item_status: isExcluded,
-            scanned_count: isExcluded ? parseInt(columns[clientConfig.item_quantity] || "0", 10) : 0,
-
-            wrapping_flag: flagTransform(columns[8]),
-            noshi_flag: flagTransform(columns[9]),
-            paper_flag: flagTransform(columns[10]),
-            short_strip_flag: flagTransform(columns[11]),
-            noshi_type: noshiTransform(columns[12]),
-            fresh_flag: flagTransform(columns[13]),
-            bag_flag: flagTransform(columns[14]),
-            message_flag: flagTransform(columns[15])
-        };
-
-        if (pickingsData[pickingId]) {
-            pickingsData[pickingId].items.push(itemData);
-        } else {
-            pickingsData[pickingId] = {
-                picking_id: pickingIdOriginal,
-                user_id: getCurrentUserId() || "UNKNOWN_USER",
-                recipient_name: columns[clientConfig.recipient_name] || "不明な受取人",
-                shipment_date: importDate,
-                csv_batch_id: csvBatchId,
-                items: [itemData],
-                status: false,
-                created_at: firebase.firestore.FieldValue.serverTimestamp()
-            };
-        }
+    function flagTransform(value) {
+      return value === "あり" ? "◯" : "✕";
+    }
+    function noshiTransform(value) {
+      if (value === "外熨斗") return "外";
+      if (value === "内熨斗") return "内";
+      return "-";
     }
 
-    // Firestore へ登録
-    Promise.all(Object.entries(pickingsData).map(([pickingId, data]) => {
-        return db.collection("Pickings").doc(pickingId).set(data)
-            .then(() => console.log(`登録成功: ${pickingId}`))
-            .catch(error => console.error(`登録失敗: ${pickingId}`, error));
-    })).then(() => {
-        console.log("インポート完了");
-        document.getElementById("statusMessage").innerText = "すべてのデータがFirebaseに追加されました";
-    });
+    const itemData = {
+      item_id: itemIdRaw,
+      item_name: columns[clientConfig.item_name] || "不明な商品",
+      quantity: parseInt(columns[clientConfig.item_quantity] || "0", 10),
+      barcode: barcode,
+      ins_flg: insFlg,
+      lot_number: unitPrice + "円",
+      item_status: isExcluded,
+      scanned_count: isExcluded ? parseInt(columns[clientConfig.item_quantity] || "0", 10) : 0,
 
-    document.getElementById("statusMessage").innerText = "データがFirebaseに追加されました";
+      wrapping_flag: flagTransform(columns[8]),
+      noshi_flag: flagTransform(columns[9]),
+      paper_flag: flagTransform(columns[10]),
+      short_strip_flag: flagTransform(columns[11]),
+      noshi_type: noshiTransform(columns[12]),
+      fresh_flag: flagTransform(columns[13]),
+      bag_flag: flagTransform(columns[14]),
+      message_flag: flagTransform(columns[15])
+    };
+
+    if (pickingsData[pickingId]) {
+      pickingsData[pickingId].items.push(itemData);
+    } else {
+      pickingsData[pickingId] = {
+        picking_id: pickingIdOriginal,
+        user_id: getCurrentUserId() || "UNKNOWN_USER",
+        recipient_name: columns[clientConfig.recipient_name] || "不明な受取人",
+        shipment_date: importDate,
+        csv_batch_id: csvBatchId,
+        items: [itemData],
+        status: false,
+        created_at: firebase.firestore.FieldValue.serverTimestamp()
+      };
+    }
+  }
+
+  // ★★★ Promise.all は「parseCSV の中の末尾」に置くのが正解 ★★★
+  Promise.all(
+    Object.entries(pickingsData).map(([pickingId, data]) => {
+      return db.collection("Pickings").doc(pickingId).set(data)
+        .then(() => console.log(`登録成功: ${pickingId}`))
+        .catch(error => console.error(`登録失敗: ${pickingId}`, error));
+    })
+  )
+  .then(() => {
+    console.log("インポート完了");
+    alert("インポートが完了しました！");
+  })
+  .catch((error) => {
+    console.error("インポートエラー:", error);
+    alert("インポート中にエラーが発生しました。");
+  })
+  .finally(() => {
+    isImporting = false; // どの経路でも必ず解除
+  });
 }
 
 
