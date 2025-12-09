@@ -1,3 +1,8 @@
+// 検品ページの流れ
+// 1) pickingId入力→ onSnapshot で対象ドキュメントを一度だけ購読し、currentPickingData に最新内容を保持
+// 2) scanBarcode は currentPickingData を参照してローカルで検品処理→ Firestore には update のみを送信
+// 3) 別IDへ切り替える際は以前の購読を unsubscribe してローカル状態をクリア
+
 // Firebaseの設定
 const firebaseConfig = {
     apiKey: "AIzaSyDRBbgFWc0Tlf9UZrJOmQXeW4LBdxHVRWI",
@@ -9,6 +14,10 @@ const firebaseConfig = {
 };
 
 let currentBatchId = null;
+let currentPickingId = null; // 現在のピッキングIDを格納
+let currentPickingData = null; // onSnapshot で購読した最新のピッキングデータ
+let currentPickingUnsubscribe = null; // 購読解除用関数
+let currentPickingDocRef = null; // 現在購読しているドキュメント参照
 
 // Firebaseを初期化
 firebase.initializeApp(firebaseConfig);
@@ -260,6 +269,8 @@ function parseCSV(text, clientConfig) {
     }
   }
 
+  const totalPickings = Object.keys(pickingsData).length;
+
   // ★★★ Promise.all は「parseCSV の中の末尾」に置くのが正解 ★★★
   Promise.all(
     Object.entries(pickingsData).map(([pickingId, data]) => {
@@ -268,6 +279,14 @@ function parseCSV(text, clientConfig) {
         .catch(error => console.error(`登録失敗: ${pickingId}`, error));
     })
   )
+  .then(() => {
+    return db.collection("BatchInfo").doc(csvBatchId).set({
+      csv_batch_id: csvBatchId,
+      total_pickings: totalPickings,
+      completed_pickings: 0,
+      created_at: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+  })
   .then(() => {
     console.log("インポート完了");
     alert("インポートが完了しました！");
@@ -288,8 +307,6 @@ function getFormattedTimestamp() {
     return `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}-${String(now.getHours()).padStart(2, "0")}${String(now.getMinutes()).padStart(2, "0")}${String(now.getSeconds()).padStart(2, "0")}`;
 }
 
-
-let currentPickingId = null; // 現在のピッキングIDを格納
 
 document.addEventListener("DOMContentLoaded", function () {
     // Firebase Auth のインスタンス確認
@@ -429,7 +446,7 @@ function formatShipmentDate(shipmentDate) {
     return `${year}年${parseInt(month, 10)}月${parseInt(day, 10)}日`; // フォーマット後の文字列
 }
 
-// ピッキングIDでデータを取得して表示
+// ピッキングIDでデータを取得して表示（onSnapshot のみで購読）
 function fetchPickingData() {
     const pickingIdInput = document.getElementById("pickingIdInput");
     let pickingIdRaw = pickingIdInput.value.trim();
@@ -450,64 +467,104 @@ function fetchPickingData() {
     // 🔽 Firestore用に変換（/ → __）
     const sanitizedId = sanitizePickingIdForFirestore(pickingIdRaw);
 
-    // 🔽 現在のIDと異なれば前のデータをリセット
+    // 異なるIDなら前の検品データをリセット
     if (currentPickingId && currentPickingId !== sanitizedId) {
         resetScannedCount(currentPickingId);
     }
 
+    // 既存の購読を解除し、ローカル状態を初期化
+    if (currentPickingUnsubscribe) {
+        currentPickingUnsubscribe();
+        currentPickingUnsubscribe = null;
+    }
+
     currentPickingId = sanitizedId;
+    currentPickingData = null;
+    currentPickingDocRef = db.collection("Pickings").doc(currentPickingId);
 
-    db.collection("Pickings").doc(currentPickingId).get()
-        .then((doc) => {
-            if (doc.exists) {
-                const data = doc.data();
+    let isFirstSnapshot = true;
 
-                if (data.status === true) {
+    currentPickingUnsubscribe = currentPickingDocRef.onSnapshot(
+        (doc) => {
+            if (!doc.exists) {
+                if (isFirstSnapshot) {
                     playSound('error.mp3', () => {
-                        alert("このピッキングIDはすでに検品済みです。");
+                        alert("該当するピッキングIDが見つかりませんでした。");
                     });
-                    currentPickingId = null;
-                    pickingIdInput.focus();
-                } else {
-                    playSound('success.mp3'); // 成功音
-                    displayItemList(data.items);
-
-                    // 🔽 表示にはオリジナルのID（スラッシュあり）を使用
-                    document.getElementById("currentPickingIdDisplay").textContent = `現在検品中のピッキングID: ${data.picking_id || desanitizePickingIdFromFirestore(currentPickingId)}`;
-
-                    document.getElementById("recipientNameDisplay").textContent = `届け先氏名: ${data.recipient_name || "未設定"}`;
-                    document.getElementById("shipmentDateDisplay").textContent = `発送日: ${formatShipmentDate(data.shipment_date)}`;
-                    document.getElementById("barcodeInput").focus();
                 }
-            } else {
-                playSound('error.mp3', () => {
-                    alert("該当するピッキングIDが見つかりませんでした。");
-                });
                 currentPickingId = null;
-                pickingIdInput.focus();
+                currentPickingData = null;
+                if (currentPickingUnsubscribe) {
+                    currentPickingUnsubscribe();
+                    currentPickingUnsubscribe = null;
+                }
+
                 document.getElementById("currentPickingIdDisplay").textContent = "";
                 document.getElementById("recipientNameDisplay").textContent = "届け先氏名: 不明";
                 document.getElementById("shipmentDateDisplay").textContent = "発送日: 不明";
+                pickingIdInput.focus();
+                return;
             }
-        })
-        .catch((error) => {
+
+            const data = doc.data();
+            currentPickingData = data;
+
+            // 初回のみ「すでに検品済み」を弾く
+            if (data.status === true && isFirstSnapshot) {
+                playSound('error.mp3', () => {
+                    alert("このピッキングIDはすでに検品済みです。");
+                });
+                currentPickingId = null;
+                currentPickingData = null;
+                if (currentPickingUnsubscribe) {
+                    currentPickingUnsubscribe();
+                    currentPickingUnsubscribe = null;
+                }
+                document.getElementById("currentPickingIdDisplay").textContent = "";
+                document.getElementById("recipientNameDisplay").textContent = "届け先氏名: 不明";
+                document.getElementById("shipmentDateDisplay").textContent = "発送日: 不明";
+                pickingIdInput.focus();
+                return;
+            }
+
+            if (isFirstSnapshot) {
+                playSound('success.mp3'); // 初回ロード成功音
+            }
+
+            displayItemList(data.items || []);
+
+            document.getElementById("currentPickingIdDisplay").textContent =
+                `現在検品中のピッキングID: ${data.picking_id || desanitizePickingIdFromFirestore(currentPickingId)}`;
+
+            document.getElementById("recipientNameDisplay").textContent =
+                `届け先氏名: ${data.recipient_name || "未設定"}`;
+            document.getElementById("shipmentDateDisplay").textContent =
+                `発送日: ${formatShipmentDate(data.shipment_date)}`;
+
+            document.getElementById("barcodeInput").focus();
+            isFirstSnapshot = false;
+        },
+        (error) => {
             playSound('error.mp3', () => {
                 alert("エラーが発生しました。");
             });
-            console.error("エラーが発生しました:", error);
+            console.error("onSnapshot エラー:", error);
             currentPickingId = null;
+            currentPickingData = null;
+            if (currentPickingUnsubscribe) {
+                currentPickingUnsubscribe();
+                currentPickingUnsubscribe = null;
+            }
             pickingIdInput.focus();
-        })
-        .finally(() => {
-            pickingIdInput.value = "";
-        });
+        }
+    );
+
+    // 入力欄はとりあえずクリア
+    pickingIdInput.value = "";
 }
 
 
-
-
-
-// 異なるピッキングIDが入力された場合にscanned_countをリセット
+// スキャン済みカウントをリセット（既存ロジックを維持）
 function resetScannedCount(pickingIdRaw) {
     const pickingId = sanitizePickingIdForFirestore(pickingIdRaw);
 
@@ -539,6 +596,10 @@ function resetScannedCount(pickingIdRaw) {
             console.error("scanned_countのリセット中にエラーが発生しました:", error);
         });
 }
+
+
+
+
 
 function createItemElement(item) {
     if (item.scanned_count === undefined) item.scanned_count = 0;
@@ -617,60 +678,70 @@ function scanBarcode() {
     const pickingIdInput = document.getElementById("pickingIdInput");
     const barcode = barcodeInput.value.trim();
 
-    if (!barcode || !currentPickingId) {
+    if (!barcode || !currentPickingId || !currentPickingData || !currentPickingDocRef) {
         playSound('error.mp3', () => { alert("バーコードとピッキングIDを入力してください。"); });
         return;
     }
 
-    db.collection("Pickings").doc(currentPickingId).get()
-        .then((doc) => {
-            if (doc.exists) {
-                const data = doc.data();
-                let allInspected = true;
-                let itemUpdated = false;
+    const items = currentPickingData.items || [];
+    let allInspected = true;
+    let itemUpdated = false;
+    let targetIndex = -1;
 
-                const updatedItems = data.items.map((item) => {
-                    if (item.barcode === barcode && item.ins_flg !== 2 && !item.item_status && item.scanned_count < item.quantity) {
-                        item.scanned_count += 1;
-                        if (item.scanned_count >= item.quantity) {
-                            item.item_status = true;
-                        }
-                        itemUpdated = true;
-                        updateItemDisplay(item);
-                    }
+    const updatedItems = items.map((item, index) => {
+        if (item.barcode === barcode && item.ins_flg !== 2 && !item.item_status && item.scanned_count < item.quantity) {
+            const newCount = item.scanned_count + 1;
+            const newStatus = newCount >= item.quantity;
+            targetIndex = index;
+            itemUpdated = true;
+            updateItemDisplay({ ...item, scanned_count: newCount, item_status: newStatus });
+            return { ...item, scanned_count: newCount, item_status: newStatus };
+        }
 
-                    if (item.ins_flg !== 2 && !item.item_status) {
-                        allInspected = false;
-                    }
+        if (item.ins_flg !== 2 && !item.item_status) {
+            allInspected = false;
+        }
 
-                    return item;
-                });
+        return item;
+    });
 
-                if (!itemUpdated) {
-                    const isBarcodeInItems = data.items.some((item) => item.barcode === barcode);
-                    playSound(isBarcodeInItems ? 'error.mp3' : 'error.mp3', () => {
-                        alert(isBarcodeInItems ? "このバーコードのアイテムは既に検品済みです。" : "このバーコードは検品対象外です。");
-                    });
-                } else {
-                    playSound(allInspected ? 'complete.mp3' : 'success.mp3', () => {
-                        // 🔹 検品完了時にピッキングIDの入力フィールドへフォーカス
-                        if (allInspected) {
-                            pickingIdInput.focus();
-                        } else {
-                            barcodeInput.focus();
-                        }
-                    });
-                    displayItemList(updatedItems);
-                }
+    if (!itemUpdated) {
+        const isBarcodeInItems = items.some((item) => item.barcode === barcode);
+        playSound('error.mp3', () => {
+            alert(isBarcodeInItems ? "このバーコードのアイテムは既に検品済みです。" : "このバーコードは検品対象外です。");
+        });
+        barcodeInput.value = "";
+        return;
+    }
 
-                const updateData = { items: updatedItems, status: allInspected };
-                if (allInspected) {
-                    updateData.completed_at = firebase.firestore.FieldValue.serverTimestamp();
-                }
+    allInspected = updatedItems.every((item) => item.ins_flg === 2 || item.item_status);
+    currentPickingData = { ...currentPickingData, items: updatedItems, status: allInspected };
 
-                return db.collection("Pickings").doc(currentPickingId).update(updateData);
-            }
-        })
+    playSound(allInspected ? 'complete.mp3' : 'success.mp3', () => {
+        if (allInspected) {
+            pickingIdInput.focus();
+        } else {
+            barcodeInput.focus();
+        }
+    });
+    displayItemList(updatedItems);
+
+    const updateData = {
+        [`items.${targetIndex}.scanned_count`]: updatedItems[targetIndex].scanned_count,
+        [`items.${targetIndex}.item_status`]: updatedItems[targetIndex].item_status,
+        status: allInspected
+    };
+    if (allInspected) {
+        updateData.completed_at = firebase.firestore.FieldValue.serverTimestamp();
+        if (currentPickingData?.csv_batch_id) {
+            db.collection("BatchInfo").doc(currentPickingData.csv_batch_id).set({
+                csv_batch_id: currentPickingData.csv_batch_id,
+                completed_pickings: firebase.firestore.FieldValue.increment(1)
+            }, { merge: true });
+        }
+    }
+
+    currentPickingDocRef.update(updateData)
         .catch((error) => {
             playSound('error.mp3', () => { alert("エラーが発生しました。"); });
             console.error("エラーが発生しました:", error);
@@ -723,17 +794,13 @@ function displayProgressByCsvBatch(batchId) {
         });
 }
 
-// 進捗確認ボタンを押したときにのみ集計を実行
-document.getElementById("progressCheckButton").addEventListener("click", () => {
-    loadBatchListFromPickings();
-});
-
 function loadBatchListFromPickings() {
     const batchListContainer = document.getElementById("batchListContainer");
     batchListContainer.innerHTML = "<p>読み込み中...</p>";
 
-    db.collection("Pickings")
-        .orderBy("created_at", "desc") //作成日時順に並べる
+    db.collection("BatchInfo")
+        .orderBy("created_at", "desc")
+        .limit(5)
         .get()
         .then((querySnapshot) => {
             if (querySnapshot.empty) {
@@ -741,40 +808,11 @@ function loadBatchListFromPickings() {
                 return;
             }
 
-            let batchMap = new Map();
-
-            //Firestore から取得したデータを処理
+            let batchHtml = "";
             querySnapshot.forEach(doc => {
                 const data = doc.data();
-                const batchId = data.csv_batch_id;
-
-                if (!batchId) return; //`csv_batch_id` がないデータは無視
-
-                if (!batchMap.has(batchId)) {
-                    batchMap.set(batchId, {
-                        csv_batch_id: batchId,
-                        total_pickings: 0,      //バッチ内のピッキング数
-                        completed_pickings: 0,  //検品済みのピッキング数
-                        created_at: data.created_at?.toDate() || new Date(0) //Firestore Timestamp を Date に変換
-                    });
-                }
-
-                let batchData = batchMap.get(batchId);
-                batchData.total_pickings += 1;
-                if (data.status === true) {
-                    batchData.completed_pickings += 1; //検品済みならカウント
-                }
-            });
-
-            //ユニークな `csv_batch_id` を作成日時順（降順）で並べ、最新5件のみ取得
-            const latestBatches = Array.from(batchMap.values())
-                .sort((a, b) => b.created_at - a.created_at) //`created_at` の降順でソート
-                .slice(0, 5); //最新5バッチを取得
-
-            let batchHtml = "";
-            latestBatches.forEach(batch => {
-                batchHtml += `<button onclick="openModal('${batch.csv_batch_id}')">
-                                バッチ ${batch.csv_batch_id} (${batch.completed_pickings}/${batch.total_pickings})
+                batchHtml += `<button onclick="openModal('${data.csv_batch_id}')">
+                                バッチ ${data.csv_batch_id} (${data.completed_pickings || 0}/${data.total_pickings || 0})
                               </button>`;
             });
 
@@ -782,59 +820,19 @@ function loadBatchListFromPickings() {
         })
         .catch((error) => {
             console.error("バッチ一覧の取得エラー:", error);
+            batchListContainer.innerHTML = "<p>バッチの取得中にエラーが発生しました。</p>";
         });
 }
 
 
 
 
-
-// ページロード時のバッチ一覧取得を削除
-// document.addEventListener("DOMContentLoaded", () => {
-//     console.log("DOMContentLoaded 発火: バッチ一覧をロード");
-//     loadBatchListFromPickings();  // ← この行を削除
-// });
 
 // 進捗確認ボタンを押したときのみバッチ一覧を取得
 document.getElementById("progressCheckButton").addEventListener("click", () => {
     console.log("進捗確認ボタンが押されました");
     loadBatchListFromPickings();
 });
-
-
-
-// 最新のバッチ一覧を取得して表示
-function loadBatchList() {
-    const batchListContainer = document.getElementById("batchListContainer");
-    batchListContainer.innerHTML = "読み込み中...";
-
-    db.collection("BatchInfo")
-        .orderBy("created_at", "desc")
-        .limit(10) // 最新10件を取得
-        .get()
-        .then((querySnapshot) => {
-            batchListContainer.innerHTML = ""; // 初期化
-
-            if (querySnapshot.empty) {
-                batchListContainer.innerHTML = "<p>バッチがありません</p>";
-                return;
-            }
-
-            querySnapshot.forEach((doc) => {
-                const data = doc.data();
-                const batchId = data.csv_batch_id;
-
-                const button = document.createElement("button");
-                button.textContent = `バッチ ${batchId} (${data.completed_items}/${data.total_items})`;
-                button.onclick = () => openModal(batchId);
-
-                batchListContainer.appendChild(button);
-            });
-        })
-        .catch((error) => {
-            console.error("バッチ一覧の取得エラー:", error);
-        });
-}
 
 
 
