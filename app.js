@@ -706,32 +706,61 @@ function updateItemDisplay(item) {
 }
 
 
-// バーコードスキャン機能
+// バーコードスキャン機能（配列 items を丸ごと更新する安全版）
 function scanBarcode() {
     const barcodeInput = document.getElementById("barcodeInput");
     const pickingIdInput = document.getElementById("pickingIdInput");
     const barcode = barcodeInput.value.trim();
 
+    // 前提チェック
     if (!barcode || !currentPickingId || !currentPickingData || !currentPickingDocRef) {
-        playSound('error.mp3', () => { alert("バーコードとピッキングIDを入力してください。"); });
+        playSound('error.mp3', () => {
+            alert("バーコードとピッキングIDを入力してください。");
+        });
         return;
     }
 
-    const items = currentPickingData.items || [];
+    // 常に配列として扱う
+    const items = Array.isArray(currentPickingData.items)
+        ? currentPickingData.items
+        : [];
+
     let allInspected = true;
     let itemUpdated = false;
-    let targetIndex = -1;
 
-    const updatedItems = items.map((item, index) => {
-        if (item.barcode === barcode && item.ins_flg !== 2 && !item.item_status && item.scanned_count < item.quantity) {
-            const newCount = item.scanned_count + 1;
-            const newStatus = newCount >= item.quantity;
-            targetIndex = index;
+    const updatedItems = items.map((item) => {
+        const quantity = item.quantity ?? 0;
+        const scanned  = item.scanned_count ?? 0;
+
+        // 対象アイテム条件：
+        //  - バーコード一致
+        //  - 検品対象（ins_flg !== 2）
+        //  - まだ完了していない
+        //  - 予定数量に未達
+        if (
+            item.barcode === barcode &&
+            item.ins_flg !== 2 &&
+            !item.item_status &&
+            scanned < quantity
+        ) {
+            const newCount  = scanned + 1;
+            const newStatus = newCount >= quantity;
+
             itemUpdated = true;
-            updateItemDisplay({ ...item, scanned_count: newCount, item_status: newStatus });
-            return { ...item, scanned_count: newCount, item_status: newStatus };
+
+            // UI 用に更新後のアイテムを生成
+            const updatedItem = {
+                ...item,
+                scanned_count: newCount,
+                item_status: newStatus
+            };
+
+            // 一旦ここでハイライト更新
+            updateItemDisplay(updatedItem);
+            return updatedItem;
         }
 
+        // 検品対象なのに未完了のものが残っていれば allInspected は false
         if (item.ins_flg !== 2 && !item.item_status) {
             allInspected = false;
         }
@@ -739,18 +768,33 @@ function scanBarcode() {
         return item;
     });
 
+    // 対象アイテムが一つも更新されなかった場合
     if (!itemUpdated) {
         const isBarcodeInItems = items.some((item) => item.barcode === barcode);
         playSound('error.mp3', () => {
-            alert(isBarcodeInItems ? "このバーコードのアイテムは既に検品済みです。" : "このバーコードは検品対象外です。");
+            alert(
+                isBarcodeInItems
+                    ? "このバーコードのアイテムは既に検品済みです。"
+                    : "このバーコードは検品対象外です。"
+            );
         });
         barcodeInput.value = "";
         return;
     }
 
-    allInspected = updatedItems.every((item) => item.ins_flg === 2 || item.item_status);
-    currentPickingData = { ...currentPickingData, items: updatedItems, status: allInspected };
+    // 全アイテム完了判定を改めて実施
+    allInspected = updatedItems.every(
+        (item) => item.ins_flg === 2 || item.item_status
+    );
 
+    // ローカル状態を更新
+    currentPickingData = {
+        ...currentPickingData,
+        items: updatedItems,
+        status: allInspected
+    };
+
+    // サウンド＋フォーカス制御
     playSound(allInspected ? 'complete.mp3' : 'success.mp3', () => {
         if (allInspected) {
             pickingIdInput.focus();
@@ -758,26 +802,39 @@ function scanBarcode() {
             barcodeInput.focus();
         }
     });
+
+    // リスト全体を再描画
     displayItemList(updatedItems);
 
+    // Firestore 更新：items を配列ごと上書きする
     const updateData = {
-        [`items.${targetIndex}.scanned_count`]: updatedItems[targetIndex].scanned_count,
-        [`items.${targetIndex}.item_status`]: updatedItems[targetIndex].item_status,
+        items: updatedItems,
         status: allInspected
     };
+
+    // 全アイテム完了時は completed_at と BatchInfo を更新
     if (allInspected) {
         updateData.completed_at = firebase.firestore.FieldValue.serverTimestamp();
+
         if (currentPickingData?.csv_batch_id) {
-            db.collection("BatchInfo").doc(currentPickingData.csv_batch_id).set({
-                csv_batch_id: currentPickingData.csv_batch_id,
-                completed_pickings: firebase.firestore.FieldValue.increment(1)
-            }, { merge: true });
+            db.collection("BatchInfo")
+                .doc(currentPickingData.csv_batch_id)
+                .set(
+                    {
+                        csv_batch_id: currentPickingData.csv_batch_id,
+                        completed_pickings: firebase.firestore.FieldValue.increment(1)
+                    },
+                    { merge: true }
+                );
         }
     }
 
-    currentPickingDocRef.update(updateData)
+    currentPickingDocRef
+        .update(updateData)
         .catch((error) => {
-            playSound('error.mp3', () => { alert("エラーが発生しました。"); });
+            playSound('error.mp3', () => {
+                alert("エラーが発生しました。");
+            });
             console.error("エラーが発生しました:", error);
         })
         .finally(() => {
