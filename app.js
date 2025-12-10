@@ -507,7 +507,41 @@ function fetchPickingData() {
             }
 
             const data = doc.data();
-            currentPickingData = data;
+
+            // --- items を必ず配列に正規化 ---
+            let normalizedItems = [];
+
+            if (Array.isArray(data.items)) {
+                // 新スキーマ：すでに配列
+                normalizedItems = data.items;
+            } else if (data.items && typeof data.items === "object") {
+                // items が map 形式になっているケース
+                normalizedItems = Object.values(data.items);
+            } else {
+                // 旧スキーマ：ドキュメント直下に1アイテム分の情報があるケース
+                const legacyItem = {
+                    barcode: data.barcode || "",
+                    item_name: data.item_name || "",
+                    lot_number: data.lot_number || "",
+                    quantity: data.quantity ?? 1,
+                    scanned_count: data.scanned_count ?? 0,
+                    item_status: data.item_status ?? false,
+                    ins_flg: data.ins_flg ?? 0,
+                    wrapping_flag: data.wrapping_flag,
+                    bag_flag: data.bag_flag,
+                    noshi_flag: data.noshi_flag,
+                    noshi_type: data.noshi_type,
+                    paper_flag: data.paper_flag,
+                    short_strip_flag: data.short_strip_flag,
+                    fresh_flag: data.fresh_flag,
+                    message_flag: data.message_flag,
+                    item_id: data.item_id || "1",
+                };
+                normalizedItems = [legacyItem];
+            }
+
+            // 正規化した items を保持
+            currentPickingData = { ...data, items: normalizedItems };
 
             // 初回のみ「すでに検品済み」を弾く
             if (data.status === true && isFirstSnapshot) {
@@ -531,7 +565,7 @@ function fetchPickingData() {
                 playSound('success.mp3'); // 初回ロード成功音
             }
 
-            displayItemList(data.items || []);
+            displayItemList(normalizedItems);
 
             document.getElementById("currentPickingIdDisplay").textContent =
                 `現在検品中のピッキングID: ${data.picking_id || desanitizePickingIdFromFirestore(currentPickingId)}`;
@@ -643,6 +677,16 @@ function createItemElement(item) {
 
 // アイテムリストの表示
 function displayItemList(items) {
+    // items が配列でない場合に備えて防御
+    if (!Array.isArray(items)) {
+        console.error("displayItemList: items が配列ではありません:", items);
+        if (items && typeof items === "object") {
+            items = Object.values(items);
+        } else {
+            return;
+        }
+    }
+
     const itemListContainer = document.getElementById("itemListContainer");
     const itemList = document.getElementById("itemList");
     itemList.innerHTML = "";
