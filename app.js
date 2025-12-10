@@ -508,36 +508,25 @@ function fetchPickingData() {
 
             const data = doc.data();
 
-            // --- items を必ず配列に正規化 ---
+            // --- items を必ず「配列」に正規化し、必要な項目をマージ ---
             let normalizedItems = [];
 
             if (Array.isArray(data.items)) {
                 // 新スキーマ：すでに配列
                 normalizedItems = data.items;
             } else if (data.items && typeof data.items === "object") {
-                // items が map 形式になっているケース
-                normalizedItems = Object.values(data.items);
+                // items が map（0,1,2キーなど）のケース
+                normalizedItems = Object.values(data.items).map((subItem, index) => ({
+                    ...data,
+                    ...subItem,
+                    item_id: subItem.item_id || String(index + 1),
+                }));
             } else {
-                // 旧スキーマ：ドキュメント直下に1アイテム分の情報があるケース
-                const legacyItem = {
-                    barcode: data.barcode || "",
-                    item_name: data.item_name || "",
-                    lot_number: data.lot_number || "",
-                    quantity: data.quantity ?? 1,
-                    scanned_count: data.scanned_count ?? 0,
-                    item_status: data.item_status ?? false,
-                    ins_flg: data.ins_flg ?? 0,
-                    wrapping_flag: data.wrapping_flag,
-                    bag_flag: data.bag_flag,
-                    noshi_flag: data.noshi_flag,
-                    noshi_type: data.noshi_type,
-                    paper_flag: data.paper_flag,
-                    short_strip_flag: data.short_strip_flag,
-                    fresh_flag: data.fresh_flag,
-                    message_flag: data.message_flag,
+                // 完全な旧スキーマ：items フィールド自体が無い
+                normalizedItems = [{
+                    ...data,
                     item_id: data.item_id || "1",
-                };
-                normalizedItems = [legacyItem];
+                }];
             }
 
             // 正規化した items を保持
@@ -636,7 +625,8 @@ function resetScannedCount(pickingIdRaw) {
 
 
 function createItemElement(item) {
-    if (item.scanned_count === undefined) item.scanned_count = 0;
+    const scanned = item.scanned_count ?? 0;
+    const quantity = item.quantity ?? 1;
 
     const barcode = item.barcode || "";
     const barcodePrefix = barcode.slice(0, -4);
@@ -650,10 +640,10 @@ function createItemElement(item) {
     ? "検品対象外"
     : item.item_status
         ? "完了"
-        : item.scanned_count > 0
+        : scanned > 0
             ? "検品中"
             : "未検品";
-    
+
     const statusClass = statusText;
 
     listItem.innerHTML = `
@@ -662,10 +652,10 @@ function createItemElement(item) {
             <div>${item.lot_number}</div>
             <div><span>${barcodePrefix}</span><span class="barcode-suffix">${barcodeSuffix}</span></div>
             <div class="status ${statusClass}">${statusText}</div>
-            <div style="font-size: 1.5em;">${item.scanned_count}/${item.quantity}</div>
+            <div style="font-size: 1.5em;">${scanned}/${quantity}</div>
         </div>
         <div style="grid-column: 1 / -1; font-size: 1.1em; color: #666; padding-top: 5px; padding-left: 10px;">
-            包装: ${item.wrapping_flag} | 熨斗: ${item.noshi_flag} | 掛紙: ${item.paper_flag} | 短冊: ${item.short_strip_flag} ｜ 熨斗種: ${item.noshi_type} ｜ できたて: ${item.fresh_flag} ｜ 袋: ${item.bag_flag} ｜ カード: ${item.message_flag}
+            包装: ${item.wrapping_flag ?? "-"} | 熨斗: ${item.noshi_flag ?? "-"} | 掛紙: ${item.paper_flag ?? "-"} | 短冊: ${item.short_strip_flag ?? "-"} ｜ 熨斗種: ${item.noshi_type ?? "-"} ｜ できたて: ${item.fresh_flag ?? "-"} ｜ 袋: ${item.bag_flag ?? "-"} ｜ カード: ${item.message_flag ?? "-"}
         </div>
     `;
 
