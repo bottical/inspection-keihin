@@ -21,6 +21,9 @@ let currentPickingDocRef = null; // 現在購読しているドキュメント�
 let lastVisibleBatchDoc = null; // ページング用カーソル
 let currentBatchQueryMode = "latest"; // "latest" | "dateRange"
 let currentBatchDateRange = { start: null, end: null }; // 検索期間
+let isBatchPanelOpen = false;
+let hasLoadedBatchOnce = false;
+let currentAuthUser = null; // handleRegistrationAuthState で更新
 const BATCH_PAGE_SIZE = 15; // 1ページあたりの件数
 
 // Firebaseを初期化
@@ -32,6 +35,14 @@ const auth = firebase.auth();
 function getCurrentUserId() {
     const user = auth.currentUser;
     return user ? user.uid : null;
+}
+
+function setBatchPanelOpen(open) {
+    const batchPanel = document.getElementById("batchPanel");
+    const batchToggleButton = document.getElementById("batchToggleButton");
+    isBatchPanelOpen = open;
+    if (batchPanel) batchPanel.style.display = open ? "block" : "none";
+    if (batchToggleButton) batchToggleButton.textContent = open ? "閉じる" : "開く";
 }
 
 // Firestoreデータ操作でユーザー情報を含める例
@@ -431,6 +442,30 @@ function setupInspectionPage() {
 function setupRegistrationPage() {
     console.log("登録ページのセットアップ開始");
 
+    const batchToggleButton = document.getElementById("batchToggleButton");
+    const batchPanel = document.getElementById("batchPanel");
+    if (batchToggleButton && batchPanel) {
+        batchToggleButton.addEventListener("click", () => {
+            setBatchPanelOpen(!isBatchPanelOpen);
+
+            if (isBatchPanelOpen && !hasLoadedBatchOnce) {
+                const batchListContainer = document.getElementById("batchListContainer");
+                const batchShowMoreButton = document.getElementById("batchShowMoreButton");
+
+                if (!currentAuthUser) {
+                    if (batchListContainer) batchListContainer.innerHTML = "<p>ログインしてください。</p>";
+                    if (batchShowMoreButton) batchShowMoreButton.style.display = "none";
+                    return;
+                }
+
+                hasLoadedBatchOnce = true;
+                currentBatchQueryMode = "latest";
+                currentBatchDateRange = { start: null, end: null };
+                loadBatchList({ mode: "latest", append: false });
+            }
+        });
+    }
+
     const batchSearchButton = document.getElementById("batchSearchButton");
     if (batchSearchButton) {
         batchSearchButton.addEventListener("click", () => {
@@ -492,8 +527,16 @@ function setupRegistrationPage() {
     if (progressCheckButton) {
         progressCheckButton.addEventListener("click", () => {
             console.log("進捗確認ボタンが押されました");
+            if (!isBatchPanelOpen) {
+                setBatchPanelOpen(true);
+            }
+
+            if (!currentAuthUser) {
+                return;
+            }
             currentBatchQueryMode = "latest";
             currentBatchDateRange = { start: null, end: null };
+            hasLoadedBatchOnce = true;
             loadBatchList({ mode: "latest", append: false });
         });
     }
@@ -506,15 +549,21 @@ function handleRegistrationAuthState(user) {
     }
 
     const batchShowMoreButton = document.getElementById("batchShowMoreButton");
+    currentAuthUser = user;
 
     if (user) {
-        currentBatchQueryMode = "latest";
-        currentBatchDateRange = { start: null, end: null };
-        loadBatchList({ mode: "latest", append: false });
+        if (isBatchPanelOpen && !hasLoadedBatchOnce) {
+            hasLoadedBatchOnce = true;
+            currentBatchQueryMode = "latest";
+            currentBatchDateRange = { start: null, end: null };
+            loadBatchList({ mode: "latest", append: false });
+        }
         return;
     }
 
-    batchListContainer.innerHTML = "<p>ログインしてください。</p>";
+    hasLoadedBatchOnce = false;
+    setBatchPanelOpen(false);
+    batchListContainer.innerHTML = "<p>「開く」を押すと読み込みます。</p>";
     if (batchShowMoreButton) {
         batchShowMoreButton.style.display = "none";
     }
