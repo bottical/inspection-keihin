@@ -34,33 +34,36 @@
     <br>
 <!-- CSVバッチ一覧表示エリア -->
 <section id="batchSearchSection">
-    <h3>過去バッチの進捗・CSV出力</h3>
+    <div class="batch-section-header">
+        <h3>過去バッチの進捗・CSV出力</h3>
+        <button type="button" id="batchToggleButton" class="batch-toggle">開く</button>
+    </div>
     <p>CSV投入（バッチ）単位で、過去の検品進捗を確認できます。表示したバッチはCSVとしてダウンロードできます。</p>
-    <div class="batch-search-controls">
-        <div class="batch-search-inputs">
-            <label>
-                開始日
-                <input type="date" id="batchStartDate">
-            </label>
-            <span class="batch-range-separator">〜</span>
-            <label>
-                終了日
-                <input type="date" id="batchEndDate">
-            </label>
-            <button type="button" id="batchSearchButton">検索</button>
+    <div id="batchPanel" class="batch-panel" style="display:none;">
+        <div class="batch-search-controls">
+            <div class="batch-search-inputs">
+                <label>
+                    開始日
+                    <input type="date" id="batchStartDate">
+                </label>
+                <span class="batch-range-separator">〜</span>
+                <label>
+                    終了日
+                    <input type="date" id="batchEndDate">
+                </label>
+                <button type="button" id="batchSearchButton">検索</button>
+            </div>
+            <div class="batch-search-presets">
+                <button type="button" id="batchTodayButton">今日</button>
+                <button type="button" id="batchYesterdayButton">昨日</button>
+                <button type="button" id="batchLast7DaysButton">直近7日</button>
+                <button type="button" id="batchLatestButton">最新を表示</button>
+            </div>
         </div>
-        <div class="batch-search-presets">
-            <button type="button" id="batchTodayButton">今日</button>
-            <button type="button" id="batchYesterdayButton">昨日</button>
-            <button type="button" id="batchLast7DaysButton">直近7日</button>
-            <button type="button" id="batchLatestButton">最新を表示</button>
+        <div id="batchListContainer"><p>「開く」を押すと読み込みます。</p></div>
+        <div class="batch-show-more">
+            <button type="button" id="batchShowMoreButton" style="display: none;">さらに表示</button>
         </div>
-    </div>
-    <div id="batchListContainer">
-        <p></p>
-    </div>
-    <div class="batch-show-more">
-        <button type="button" id="batchShowMoreButton" style="display: none;">さらに表示</button>
     </div>
 </section>
 

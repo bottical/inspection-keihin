@@ -12,6 +12,33 @@ body {
     min-height: 100vh;
 }
 
+/* batch section header */
+.batch-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.batch-toggle {
+    padding: 8px 12px;
+    border-radius: 10px;
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    color: #1b365c;
+    cursor: pointer;
+    font: inherit;
+}
+
+.batch-toggle:hover {
+    border-color: #7ea1c4;
+    box-shadow: 0 4px 12px rgba(27, 54, 92, 0.1);
+}
+
+.batch-panel {
+    margin-top: 12px;
+}
+
 /* 見出しスタイル */
 h1 {
     font-size: 2.5em;
