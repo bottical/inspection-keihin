@@ -21,7 +21,7 @@ let currentPickingDocRef = null; // 現在購読しているドキュメント�
 let lastVisibleBatchDoc = null; // ページング用カーソル
 let currentBatchQueryMode = "latest"; // "latest" | "dateRange"
 let currentBatchDateRange = { start: null, end: null }; // 検索期間
-const BATCH_PAGE_SIZE = 20; // 1ページあたりの件数
+const BATCH_PAGE_SIZE = 15; // 1ページあたりの件数
 
 // Firebaseを初期化
 firebase.initializeApp(firebaseConfig);
