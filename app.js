@@ -533,6 +533,28 @@ function formatShipmentDate(shipmentDate) {
     return `${year}年${parseInt(month, 10)}月${parseInt(day, 10)}日`; // フォーマット後の文字列
 }
 
+function formatBatchTimestamp(batchData) {
+    if (batchData?.created_at && typeof batchData.created_at.toDate === "function") {
+        const date = batchData.created_at.toDate();
+        return new Intl.DateTimeFormat("ja-JP", {
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit"
+        }).format(date);
+    }
+
+    if (batchData?.csv_batch_id) {
+        const match = batchData.csv_batch_id.match(/^(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})$/);
+        if (match) {
+            return `${match[1]}/${match[2]}/${match[3]} ${match[4]}:${match[5]}`;
+        }
+    }
+
+    return "日時不明";
+}
+
 // ピッキングIDでデータを取得して表示（onSnapshot のみで購読）
 function fetchPickingData() {
     const pickingIdInput = document.getElementById("pickingIdInput");
@@ -987,11 +1009,37 @@ function renderBatchList(querySnapshot, { append }) {
 
     querySnapshot.forEach((doc) => {
         const data = doc.data();
-        const button = document.createElement("button");
-        button.type = "button";
-        button.textContent = `バッチ ${data.csv_batch_id} (${data.completed_pickings || 0}/${data.total_pickings || 0})`;
-        button.addEventListener("click", () => openModal(data.csv_batch_id));
-        batchListContainer.appendChild(button);
+        const totalPickings = data.total_pickings || 0;
+        const completedPickings = data.completed_pickings || 0;
+        const progressPercent = totalPickings > 0
+            ? Math.min(100, Math.round((completedPickings / totalPickings) * 100))
+            : 0;
+        const isComplete = totalPickings > 0 && completedPickings >= totalPickings;
+
+        const card = document.createElement("button");
+        card.type = "button";
+        card.className = "batch-card";
+        card.innerHTML = `
+            <h4>${formatBatchTimestamp(data)}</h4>
+            <p class="batch-meta">バッチID: ${data.csv_batch_id || "不明"}</p>
+            <div class="batch-progress">
+                <span>進捗 <strong>${completedPickings}</strong> / ${totalPickings}</span>
+                <span>${progressPercent}%</span>
+            </div>
+            <div class="batch-progress-bar">
+                <div class="batch-progress-fill" style="width: ${progressPercent}%;"></div>
+            </div>
+            <span class="batch-status ${isComplete ? "complete" : "pending"}">
+                ${isComplete ? "完了" : "進行中"}
+            </span>
+        `;
+        card.addEventListener("click", () => {
+            if (!data.csv_batch_id) {
+                return;
+            }
+            openModal(data.csv_batch_id);
+        });
+        batchListContainer.appendChild(card);
     });
 }
 
