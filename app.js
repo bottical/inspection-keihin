@@ -18,46 +18,15 @@ let currentPickingId = null; // 現在のピッキングIDを格納
 let currentPickingData = null; // onSnapshot で購読した最新のピッキングデータ
 let currentPickingUnsubscribe = null; // 購読解除用関数
 let currentPickingDocRef = null; // 現在購読しているドキュメント参照
+let lastVisibleBatchDoc = null; // ページング用カーソル
+let currentBatchQueryMode = "latest"; // "latest" | "dateRange"
+let currentBatchDateRange = { start: null, end: null }; // 検索期間
+const BATCH_PAGE_SIZE = 20; // 1ページあたりの件数
 
 // Firebaseを初期化
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const auth = firebase.auth();
-
-window.addEventListener("load", () => {
-    console.log("window.onload 発火: バッチ一覧を読み込む");
-});
-
-
-document.getElementById("loginButton").addEventListener("click", () => {
-    const email = document.getElementById("emailInput").value.trim();
-    const password = document.getElementById("passwordInput").value.trim();
-
-    auth.signInWithEmailAndPassword(email, password)
-        .then((userCredential) => {
-            console.log(`ログイン成功: ${userCredential.user.email}`);
-        })
-        .catch((error) => {
-        const errorMessage = error.message;
-        alert(`ログイン失敗: ${errorMessage}`);
-});
-});
-
-
-// ユーザーのログイン状態を監視
-auth.onAuthStateChanged((user) => {
-    if (user) {
-        document.getElementById("welcomeMessage").textContent = `ようこそ、${user.email} さん`;
-        document.getElementById("loginContainer").style.display = "none";
-        document.getElementById("userInfo").style.display = "block";
-        document.getElementById("logoutButton").style.display = "block";
-    } else {
-        document.getElementById("loginContainer").style.display = "block";
-        document.getElementById("userInfo").style.display = "none";
-        document.getElementById("logoutButton").style.display = "none";
-    }
-});
-
 
 // ログインユーザーのIDを取得する関数
 function getCurrentUserId() {
@@ -120,6 +89,31 @@ function getFormattedDate() {
     const month = String(now.getMonth() + 1).padStart(2, "0");
     const day = String(now.getDate()).padStart(2, "0");
     return `${year}${month}${day}`;
+}
+
+function getJstDateParts(date) {
+    const formatter = new Intl.DateTimeFormat("ja-JP", {
+        timeZone: "Asia/Tokyo",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit"
+    });
+    const parts = formatter.formatToParts(date).reduce((acc, part) => {
+        if (part.type !== "literal") {
+            acc[part.type] = part.value;
+        }
+        return acc;
+    }, {});
+    return {
+        year: Number(parts.year),
+        month: Number(parts.month),
+        day: Number(parts.day)
+    };
+}
+
+function formatDateInput(date) {
+    const { year, month, day } = getJstDateParts(date);
+    return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
 // ==== インポート中の離脱防止処理 ====
@@ -360,31 +354,38 @@ document.addEventListener("DOMContentLoaded", function () {
         console.warn("ログアウトボタン（#logoutButton）が見つかりません。");
     }
 
-    // ログイン状態の監視（全ページ共通）
-    auth.onAuthStateChanged((user) => {
-        const welcomeMessage = document.getElementById("welcomeMessage");
-        const loginContainer = document.getElementById("loginContainer");
-        const logoutContainer = document.getElementById("logoutContainer");
-
-        if (user) {
-            console.log(`ログイン中: ${user.email}`);
-            if (welcomeMessage) welcomeMessage.textContent = `ようこそ、${user.email} さん`;
-            if (loginContainer) loginContainer.classList.add("hidden");
-            if (logoutContainer) logoutContainer.classList.remove("hidden");
-        } else {
-            console.log("ログアウト状態");
-            if (welcomeMessage) welcomeMessage.textContent = "";
-            if (loginContainer) loginContainer.classList.remove("hidden");
-            if (logoutContainer) logoutContainer.classList.add("hidden");
-        }
-    });
-
     // ページ識別用属性（例: <body data-page="inspection">）
     const pageType = document.body.getAttribute("data-page");
     if (!pageType) {
         console.error("ページ識別のための 'data-page' 属性が見つかりません。");
         return;
     }
+
+    // ログイン状態の監視（全ページ共通）
+    auth.onAuthStateChanged((user) => {
+        const welcomeMessage = document.getElementById("welcomeMessage");
+        const loginContainer = document.getElementById("loginContainer");
+        const userInfo = document.getElementById("userInfo");
+        const logoutButton = document.getElementById("logoutButton");
+
+        if (user) {
+            console.log(`ログイン中: ${user.email}`);
+            if (welcomeMessage) welcomeMessage.textContent = `ようこそ、${user.email} さん`;
+            if (loginContainer) loginContainer.style.display = "none";
+            if (userInfo) userInfo.style.display = "block";
+            if (logoutButton) logoutButton.style.display = "block";
+        } else {
+            console.log("ログアウト状態");
+            if (welcomeMessage) welcomeMessage.textContent = "";
+            if (loginContainer) loginContainer.style.display = "block";
+            if (userInfo) userInfo.style.display = "none";
+            if (logoutButton) logoutButton.style.display = "none";
+        }
+
+        if (pageType === "registration") {
+            handleRegistrationAuthState(user);
+        }
+    });
 
     // ページごとの処理
     if (pageType === "inspection") {
@@ -430,7 +431,93 @@ function setupInspectionPage() {
 function setupRegistrationPage() {
     console.log("登録ページのセットアップ開始");
 
-    // 必要に応じて登録ページ固有のイベントリスナーや処理を追加
+    const batchSearchButton = document.getElementById("batchSearchButton");
+    if (batchSearchButton) {
+        batchSearchButton.addEventListener("click", () => {
+            performDateSearch();
+        });
+    }
+
+    const batchTodayButton = document.getElementById("batchTodayButton");
+    if (batchTodayButton) {
+        batchTodayButton.addEventListener("click", () => {
+            const today = new Date();
+            setDateRangeAndSearch(today, today);
+        });
+    }
+
+    const batchYesterdayButton = document.getElementById("batchYesterdayButton");
+    if (batchYesterdayButton) {
+        batchYesterdayButton.addEventListener("click", () => {
+            const today = new Date();
+            const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+            setDateRangeAndSearch(yesterday, yesterday);
+        });
+    }
+
+    const batchLast7DaysButton = document.getElementById("batchLast7DaysButton");
+    if (batchLast7DaysButton) {
+        batchLast7DaysButton.addEventListener("click", () => {
+            const today = new Date();
+            const start = new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000);
+            setDateRangeAndSearch(start, today);
+        });
+    }
+
+    const batchLatestButton = document.getElementById("batchLatestButton");
+    if (batchLatestButton) {
+        batchLatestButton.addEventListener("click", () => {
+            currentBatchQueryMode = "latest";
+            currentBatchDateRange = { start: null, end: null };
+            const startInput = document.getElementById("batchStartDate");
+            const endInput = document.getElementById("batchEndDate");
+            if (startInput) startInput.value = "";
+            if (endInput) endInput.value = "";
+            loadBatchList({ mode: "latest", append: false });
+        });
+    }
+
+    const batchShowMoreButton = document.getElementById("batchShowMoreButton");
+    if (batchShowMoreButton) {
+        batchShowMoreButton.addEventListener("click", () => {
+            loadBatchList({
+                mode: currentBatchQueryMode,
+                dateRange: currentBatchDateRange,
+                append: true
+            });
+        });
+    }
+
+    const progressCheckButton = document.getElementById("progressCheckButton");
+    if (progressCheckButton) {
+        progressCheckButton.addEventListener("click", () => {
+            console.log("進捗確認ボタンが押されました");
+            currentBatchQueryMode = "latest";
+            currentBatchDateRange = { start: null, end: null };
+            loadBatchList({ mode: "latest", append: false });
+        });
+    }
+}
+
+function handleRegistrationAuthState(user) {
+    const batchListContainer = document.getElementById("batchListContainer");
+    if (!batchListContainer) {
+        return;
+    }
+
+    const batchShowMoreButton = document.getElementById("batchShowMoreButton");
+
+    if (user) {
+        currentBatchQueryMode = "latest";
+        currentBatchDateRange = { start: null, end: null };
+        loadBatchList({ mode: "latest", append: false });
+        return;
+    }
+
+    batchListContainer.innerHTML = "<p>ログインしてください。</p>";
+    if (batchShowMoreButton) {
+        batchShowMoreButton.style.display = "none";
+    }
 }
 
 // 日付をフォーマットする関数
@@ -885,49 +972,125 @@ function displayProgressByCsvBatch(batchId) {
         });
 }
 
-function loadBatchListFromPickings() {
+function renderBatchList(querySnapshot, { append }) {
     const batchListContainer = document.getElementById("batchListContainer");
-    batchListContainer.innerHTML = "<p>読み込み中...</p>";
+    if (!append) {
+        batchListContainer.innerHTML = "";
+    }
 
-    db.collection("BatchInfo")
-        .orderBy("created_at", "desc")
-        .limit(5)
+    if (querySnapshot.empty) {
+        if (!append) {
+            batchListContainer.innerHTML = "<p>バッチがありません</p>";
+        }
+        return;
+    }
+
+    querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = `バッチ ${data.csv_batch_id} (${data.completed_pickings || 0}/${data.total_pickings || 0})`;
+        button.addEventListener("click", () => openModal(data.csv_batch_id));
+        batchListContainer.appendChild(button);
+    });
+}
+
+function updateShowMoreVisibility(querySnapshot) {
+    const showMoreButton = document.getElementById("batchShowMoreButton");
+    if (!showMoreButton) {
+        return;
+    }
+    if (querySnapshot.size === BATCH_PAGE_SIZE) {
+        showMoreButton.style.display = "inline-block";
+    } else {
+        showMoreButton.style.display = "none";
+    }
+}
+
+function loadBatchList({ mode = currentBatchQueryMode, dateRange = currentBatchDateRange, append = false } = {}) {
+    const batchListContainer = document.getElementById("batchListContainer");
+    if (!batchListContainer) {
+        return;
+    }
+
+    if (!append) {
+        batchListContainer.innerHTML = "<p>読み込み中...</p>";
+        lastVisibleBatchDoc = null;
+    }
+
+    let query = db.collection("BatchInfo");
+    if (mode === "dateRange" && dateRange?.start && dateRange?.end) {
+        query = query
+            .where("created_at", ">=", dateRange.start)
+            .where("created_at", "<", dateRange.end)
+            .orderBy("created_at", "desc");
+    } else {
+        query = query.orderBy("created_at", "desc");
+    }
+
+    if (append && lastVisibleBatchDoc) {
+        query = query.startAfter(lastVisibleBatchDoc);
+    }
+
+    query = query.limit(BATCH_PAGE_SIZE);
+
+    query
         .get()
         .then((querySnapshot) => {
-            if (querySnapshot.empty) {
-                batchListContainer.innerHTML = "<p>バッチがありません</p>";
-                return;
+            if (!append) {
+                batchListContainer.innerHTML = "";
             }
 
-            let batchHtml = "";
-            querySnapshot.forEach(doc => {
-                const data = doc.data();
-                batchHtml += `<button onclick="openModal('${data.csv_batch_id}')">
-                                バッチ ${data.csv_batch_id} (${data.completed_pickings || 0}/${data.total_pickings || 0})
-                              </button>`;
-            });
-
-            batchListContainer.innerHTML = batchHtml;
+            renderBatchList(querySnapshot, { append });
+            lastVisibleBatchDoc = querySnapshot.docs[querySnapshot.docs.length - 1] || lastVisibleBatchDoc;
+            updateShowMoreVisibility(querySnapshot);
         })
         .catch((error) => {
             console.error("バッチ一覧の取得エラー:", error);
             batchListContainer.innerHTML = "<p>バッチの取得中にエラーが発生しました。</p>";
+            updateShowMoreVisibility({ size: 0 });
         });
 }
 
+function parseDateInputValue(value) {
+    if (!value) {
+        return null;
+    }
+    return new Date(`${value}T00:00:00+09:00`);
+}
 
+function performDateSearch() {
+    const startValue = document.getElementById("batchStartDate").value;
+    const endValue = document.getElementById("batchEndDate").value;
+    const startDate = parseDateInputValue(startValue);
+    const endDate = parseDateInputValue(endValue);
 
+    if (!startDate || !endDate) {
+        alert("開始日と終了日を入力してください。");
+        return;
+    }
 
+    if (startDate > endDate) {
+        alert("開始日は終了日より前の日付を選択してください。");
+        return;
+    }
 
-// 進捗確認ボタンを押したときのみバッチ一覧を取得
-document.getElementById("progressCheckButton").addEventListener("click", () => {
-    console.log("進捗確認ボタンが押されました");
-    loadBatchListFromPickings();
-});
+    const endExclusive = new Date(endDate.getTime() + 24 * 60 * 60 * 1000);
 
+    currentBatchQueryMode = "dateRange";
+    currentBatchDateRange = {
+        start: startDate,
+        end: endExclusive
+    };
 
+    loadBatchList({ mode: "dateRange", dateRange: currentBatchDateRange, append: false });
+}
 
-
+function setDateRangeAndSearch(startDate, endDate) {
+    document.getElementById("batchStartDate").value = formatDateInput(startDate);
+    document.getElementById("batchEndDate").value = formatDateInput(endDate);
+    performDateSearch();
+}
 
 // 投入バッチごとの進捗データをUIに表示
 function updateModalProgressUI(batchId, progressList) {

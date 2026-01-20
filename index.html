@@ -33,9 +33,33 @@
     </div>
     <br>
 <!-- CSVバッチ一覧表示エリア -->
-<div id="batchListContainer">
-    <p></p>
-</div>
+<section id="batchSearchSection">
+    <h3>過去バッチの進捗・CSV出力</h3>
+    <p>CSV投入（バッチ）単位で、過去の検品進捗を確認できます。表示したバッチはCSVとしてダウンロードできます。</p>
+    <div>
+        <label>
+            開始日
+            <input type="date" id="batchStartDate">
+        </label>
+        <label>
+            終了日
+            <input type="date" id="batchEndDate">
+        </label>
+        <button type="button" id="batchSearchButton">検索</button>
+    </div>
+    <div>
+        <button type="button" id="batchTodayButton">今日</button>
+        <button type="button" id="batchYesterdayButton">昨日</button>
+        <button type="button" id="batchLast7DaysButton">直近7日</button>
+        <button type="button" id="batchLatestButton">最新を表示</button>
+    </div>
+    <div id="batchListContainer">
+        <p></p>
+    </div>
+    <div>
+        <button type="button" id="batchShowMoreButton" style="display: none;">さらに表示</button>
+    </div>
+</section>
 
 <!-- ページ本体の進捗表示用 -->
 <div id="progressContainer"></div>
@@ -71,4 +95,3 @@
     
 </body>
 </html>
-
