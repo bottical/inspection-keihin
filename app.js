@@ -896,6 +896,7 @@ function scanBarcode() {
         //  - まだ完了していない
         //  - 予定数量に未達
         if (
+            !itemUpdated &&
             item.barcode === barcode &&
             item.ins_flg !== 2 &&
             !item.item_status &&
